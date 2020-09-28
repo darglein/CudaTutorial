@@ -1,0 +1,411 @@
+% or aspectratio=43
+\documentclass[aspectratio=169]{beamer}
+
+% remove this line for an english presentation
+\usepackage{ngerman}
+
+% Optional arguments (separate by comma):
+% darkmode			- Black background and white font
+% imagetitlepage	- Adds the images defined in \titlegraphic to the title page
+\usepackage[imagetitlepage]{lgdv/lgdv_beamer}
+
+\usepackage{mdframed}
+
+
+\usepackage{xcolor}
+\graphicspath{{images/}}
+
+
+\newcommand\ytl[2]{
+	\parbox[b]{8em}{\hfill{\color{cyan}\bfseries\sffamily #1}~$\cdots\cdots$~}\makebox[0pt][c]{$\bullet$}\vrule\quad \parbox[c]{10.5cm}{\vspace{7pt}\color{red!80!black!80}\raggedright\sffamily #2\\[7pt]}\\[-3pt]}
+
+
+\title{The CUDA Programming Model}
+\subtitle{AGPhys WS 20/21}
+\author[Darius Rückert]{Darius Rückert}
+\date{\today}
+
+\titlegraphic
+{
+	\begin{figure}[!h]
+	\includegraphics[height=.35\textheight]{cuda}
+	%\hfill
+%	\includegraphics[height=.35\textheight]{tegra}
+	%\hfill
+	%\includegraphics[height=.35\textheight]{arc}
+\end{figure}
+}
+
+\begin{document}
+
+\frame
+{
+	\titlepage
+}
+
+
+\frame{
+	\frametitle{CUDA Course Overview}
+
+	\begin{enumerate}
+		\item The CUDA Programming Model (this lecture)
+		\item Device Architecture and Parallel Communication
+		\item Parallel Algorithms
+		\item Profiling and Optimizing CUDA Code
+	\end{enumerate}
+}
+
+\frame
+{
+	\frametitle{What is CUDA?}
+	\begin{mdframed}
+		CUDA is a \textbf{parallel computing platform} that allows developers to use the graphics processing unit for \textbf{general purpose processing} (GPGPU).
+	\end{mdframed}
+}
+
+\frame{
+	\frametitle{History of GPGPU}
+\begin{table}
+	\centering
+		\color{gray}
+		\ytl{2001}{GeForce 3 - First programmable shader pipeline with DirectX 8}
+		\ytl{2001}{
+		Larsen \& McAllister - first GPU matrix multiplication (8-bit) Hardware 	
+	}
+\ytl{2002}{
+	Harris \& Coombe - Physically-Based Visual Simulation on Graphics Hardware 	
+}
+\end{table}
+
+	\begin{figure}[!h]
+	\begin{subfigure}{.3\textwidth}
+		\centering
+		\includegraphics[height=.3\textheight]{phys1}
+	\end{subfigure}%
+	\begin{subfigure}{.3\textwidth}
+		\centering
+		\includegraphics[height=.3\textheight]{phys2}
+	\end{subfigure}
+\begin{subfigure}{.3\textwidth}
+	\centering
+	\includegraphics[height=.3\textheight]{phys3}
+\end{subfigure}
+\end{figure}
+}
+
+
+
+\frame{
+	\frametitle{History of GPGPU}
+	\begin{table}
+		\centering
+		\color{gray}
+		\ytl{2002}{Programmable shaders in OpenGL 1.3 (as ARB extension)}
+		\ytl{2002}{Purcell - Ray Tracing}
+		\ytl{2003}{Bolz et al - Conjugate gradient}
+		\ytl{2003}{Krueger et al - Fluid and cloud simulation}
+	\end{table}
+	
+	\begin{figure}[!h]
+		\begin{subfigure}{.3\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{phys6}
+		\end{subfigure}%
+		\begin{subfigure}{.3\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{phys4}
+		\end{subfigure}
+		\begin{subfigure}{.3\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{phys5}
+		\end{subfigure}
+	\end{figure}
+}
+
+\frame{
+	\frametitle{History of GPGPU}
+	\begin{table}
+		\centering
+		\color{gray}
+		\ytl{until 2007}{All GPGPU programs in vertex/fragment shaders}
+		\ytl{2007}{Release of CUDA 1.0 - First GPGPU API}
+		\ytl{2009}{OpenCL 1.0}
+		\ytl{2009}{DirectCompute in DirectX 11}
+		\ytl{2012}{OpenGL 4.2 compute shader}
+	\end{table}
+	
+	\begin{figure}[!h]
+		\begin{subfigure}{.2\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{cuda}
+		\end{subfigure}%
+		\begin{subfigure}{.2\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{opencl}
+		\end{subfigure}
+		\begin{subfigure}{.2\textwidth}
+			\centering
+			\includegraphics[height=.3\textheight]{d11}
+		\end{subfigure}
+			\begin{subfigure}{.3\textwidth}
+		\centering
+		\includegraphics[height=.3\textheight]{opengl}
+	\end{subfigure}
+	\end{figure}
+}
+
+
+\begin{frame} [fragile]
+	\frametitle{Programming Model}
+	\textbf{CPU (C++ Threads)}
+	\begin{itemize}
+		\item Threads are launched using the C++ std lib
+		\item Each thread can execute different code
+		\item %
+\begin{lstlisting} 
+// Launch 1 thread that executes 'myFunction'
+std::thread t1(myFunction);
+\end{lstlisting}
+	\end{itemize}
+	\textbf{GPU (CUDA)}
+		\begin{itemize}
+			\item Kernels (GPU functions) are launched using the CUDA API
+			\item A kernel is executed by multiple threads
+			\item All threads from one launch execute the same code
+			\item %
+\begin{lstlisting} 
+// Launch 1024 threads that execute 'myKernel'
+myKernel<<<1,1024>>>();
+\end{lstlisting}
+		\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Run the Samples}
+\begin{itemize}
+	\item Download the samples and navigate to the code directory \href{https://github.com/darglein/saiga/tree/master/samples/cuda/helloCuda}{(Link @GitHub)}
+	\item Run CMake 
+\end{itemize}
+\begin{lstlisting}[language=bash]
+mkdir build && cd build
+CXX=g++-9 CUDAHOSTCXX=g++-8 cmake ..
+\end{lstlisting}
+\begin{itemize}
+	\item Compile and run
+\end{itemize}
+\begin{lstlisting}[language=bash]
+make -j4 && ./hello_world
+\end{lstlisting}
+
+\begin{mdframed}[frametitle=Note:]
+	The latest C++ compilers are usually not supported for CUDA host code.
+\end{mdframed}
+	
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{CUDA Hello World}
+\begin{lstlisting}
+// The __global__ keywort defines CUDA kernels!
+__global__ void helloCudaKernel()
+{
+	printf("Hello from thread %d!\n", threadIdx.x);
+}
+
+int main(int argc, char *argv[])
+{
+	// Launch the kernel with 8 threads
+	helloCudaKernel<<<1,8>>>();
+	
+	// Wait until completion
+	cudaDeviceSynchronize();
+	
+	return 0;
+}
+\end{lstlisting}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+	\frametitle{Launch Arguments}
+	\begin{itemize}
+		\item The launch arguments define how many instances of the kernel are run on the GPU
+\begin{lstlisting}
+myKernel<<<num_blocks, threads_per_block>>>(args, ...);
+\end{lstlisting}
+		\item The first parameter is the number of blocks
+		\item The second parameter is the number of threads per block
+		\item Arguments can be passed to kernels and are automatically uploaded to device memory
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Launch Arguments}
+	\begin{itemize}
+		\item Launch 1 block with 256 threads (256 threads total):
+\begin{lstlisting}
+myKernel<<<1,256>>>();
+\end{lstlisting}
+		\item Launch 8 blocks with 32 threads each (256 threads total):
+\begin{lstlisting}
+myKernel<<<8,32>>>();
+\end{lstlisting}
+	\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Launch Arguments}
+
+\begin{itemize}
+	\item The current block id is:
+\begin{lstlisting}
+int blockId = blockIdx.x;
+\end{lstlisting}
+	\item The local thread Id (relative to the block) is:
+\begin{lstlisting}
+int tid = threadIdx.x;
+\end{lstlisting}
+	\item The block size is:
+\begin{lstlisting}
+int blockSize = blockDim.x;
+\end{lstlisting}	
+	\item \textbf{Note}: We can also pass 2 or 3 dimensional launch arguments
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{CUDA Hello World}
+\begin{lstlisting}
+// The __global__ keywort defines CUDA kernels!
+__global__ void helloCudaKernel(int a)
+{
+	printf("Hello from thread (%d,%d). a = %d!\n", 
+	   blockIdx.x, threadIdx.x, a);
+}
+
+int main(int argc, char *argv[])
+{
+	// Launch the kernel with 2 block, each 4 threads
+	helloCudaKernel<<<2,4>>>(42);
+	
+	// Wait until completion
+	cudaDeviceSynchronize();
+	
+	return 0;
+}
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Kernel Arguments}
+
+\begin{itemize}
+	\item Kernel arguments are passed by value
+	\item Automatically uploaded to GPU memory
+	\item Max size 256B (sum of all arguments)
+	\item Never pass a pointer to CPU  memory!
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{GPU Memory}
+	Explicit allocation/deallocation:
+	\begin{itemize}
+		\item cudaMalloc, cudaFree
+	\end{itemize}
+	Explicit copy between host-device:
+	\begin{itemize}
+		\item cudaMemcpy
+	\end{itemize}
+	We recommend to use the \textit{Thrust} library for memory management:
+\begin{lstlisting}
+thrust::device_vector<float> device_data(200);
+\end{lstlisting}
+
+\begin{mdframed}[frametitle=Note:]
+	Thrust is a C++ template library included in the CUDA toolkit. The syntax and functionality is similar to the C++ 11 standard library.
+\end{mdframed}
+	
+\end{frame}
+
+
+\frame{
+	\frametitle{Particle Example}
+	\begin{itemize}
+		\item Allocate memory
+		\item Initialize on the CPU
+		\item Modify on the GPU
+	\end{itemize}
+	
+	See example code...
+}
+
+
+
+\frame{
+	\frametitle{OpenGL Interoperability}
+	%https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#graphics-interoperability
+	\begin{itemize}
+		\item OpenGL resources (buffers and textures) can be \textbf{mapped} into the CUDA address space (\href{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html\#graphics-interoperability}{Documentation})
+		\item[$\rightarrow$] The resources can be read or written by kernels
+	\end{itemize}
+	Steps
+	\begin{enumerate}
+		\item Register the OpenGL resource once (\texttt{cudaGraphicsGLRegisterBuffer})
+		\item Map the resource (\texttt{cudaGraphicsMapResources})
+		\item Extract the device pointer (\texttt{cudaGraphicsResourceGetMappedPointer})
+		\item Run your kernel
+		\item Unmap the resource (\texttt{cudaGraphicsUnmapResources})
+	\end{enumerate}
+}
+
+
+\begin{frame}[fragile]
+\frametitle{CUDA Memcheck}
+Checks for illegal memory accesses, unaligned reads/writes, ...
+\begin{lstlisting}[language=bash]
+cuda-memcheck ./helloWorld
+\end{lstlisting}
+Output:
+\begin{lstlisting}[language=bash]
+Invalid __global__ write of size 4
+	at 0x000001b8 in segfault.cu:26:void oob<unsigned int=128>(int*, int)
+	by thread (127,0,0) in block (15,0,0)
+	Address 0x7f0717602000 is out of bounds
+\end{lstlisting}
+
+\textbf{Note:} Requires -G compiler flag for NVCC
+\end{frame}
+
+
+
+\frame{
+	\frametitle{Literature}
+	%
+	\begin{itemize}
+		\item \href{http://cs.unc.edu/xcms/wpfiles/50th-symp/Harris.pdf}{Harris 2014, A Brief History of GPGPU}
+		\item \href{http://www.markmark.net/cml/dl/HWW02_Harris_electronic.pdf}{Harris \& Coombe 2002, Physically-Based Visual Simulation on Graphics Hardware}	
+		\item \href{https://docs.nvidia.com/cuda/}{Cuda Toolkit Documentation}
+		\item \href{https://docs.nvidia.com/cuda/cuda-driver-api/}{CUDA driver API}
+		\item \href{https://docs.nvidia.com/cuda/cuda-runtime-api/}{ CUDA runtime API}
+		\item \href{https://docs.nvidia.com/cuda/thrust/index.html}{Thrust}
+	\end{itemize}
+	
+}
+
+
+
+
+
+\end{document}
+
+
+
