@@ -1,0 +1,126 @@
+
+\usepackage[utf8]{inputenc}
+\usepackage{subcaption}
+\usepackage{graphicx,import}
+\RequirePackage{xkeyval}
+\RequirePackage{calc}
+\usepackage{ifthen}
+%\usepackage[margin=100pt,font=small,labelfont=bf]{caption}	
+
+\usetheme{boxes}
+
+
+
+\newboolean{@darkmode}
+\setboolean{@darkmode}{false}
+\DeclareOption{darkmode}{\setboolean{@darkmode}{true}}
+
+\newboolean{@imagetitlepage}
+\setboolean{@imagetitlepage}{false}
+\DeclareOption{imagetitlepage}{\setboolean{@imagetitlepage}{true}}
+
+\ProcessOptions%
+
+
+
+
+
+\ifthenelse{\boolean{@darkmode}}
+{
+	\definecolor{backgroundcolor}{gray}{0}
+	\definecolor{fontcolor}{gray}{1}
+	\definecolor{footlinecolor}{gray}{.8}
+	\def \lgdvlogoup {lgdv/lgdv-en-cl-dark.pdf}
+	\def \lgdvlogodown {lgdv/lgdv-en-cl-mirror-dark.pdf}
+}
+{
+	\definecolor{backgroundcolor}{gray}{1}
+	\definecolor{fontcolor}{gray}{0}
+	\definecolor{footlinecolor}{gray}{.5}
+	\def \lgdvlogoup {lgdv/lgdv-en-cl.pdf}
+	\def \lgdvlogodown {lgdv/lgdv-en-cl-mirror.pdf}
+}
+
+
+\setbeamercolor{background canvas}{bg=backgroundcolor}
+\setbeamercolor*{titlelike}{fg=fontcolor}
+\setbeamercolor*{itemize item}{fg=fontcolor}
+\setbeamercolor*{itemize subitem}{fg=fontcolor}
+\setbeamercolor*{itemize subsubitem}{fg=fontcolor}
+\setbeamercolor*{structure}{fg=fontcolor}
+\setbeamercolor*{normal text}{fg=fontcolor}
+
+
+
+
+\usenavigationsymbolstemplate{}
+
+\defbeamertemplate*{headline}{}
+{
+  \leavevmode%
+  \vskip 1.5em%
+}
+
+\defbeamertemplate*{footline}{}
+{
+  %\rule{0pt}{2.5ex}\mbox{\ \hskip 5mm\ }  \includegraphics[width=2cm]{lgdv/Logo_FAU_DinA4_4C} 
+  \leavevmode%
+  \hfill \includegraphics[width=2cm]{\lgdvlogoup} \hskip 3.5mm\ %
+  \newline%
+  \vskip 0.2ex
+  { \color{footlinecolor}
+  \ \hskip 5mm \hrulefill \hskip 5mm\ %
+  }
+  \newline%
+  \vskip 0.2ex
+  \hfill 
+  \includegraphics[width=2cm]{\lgdvlogodown} \hskip 3.5mm\ %
+  \newline%
+  \vskip -5.5mm
+  { \color{footlinecolor}
+  \rule{0pt}{2.7ex}\mbox{\ \hskip 5mm\ } \mbox{\insertframenumber/\inserttotalframenumber \hskip 0.5cm \insertshortauthor \hskip 0.5cm \insertshorttitle}
+	  }
+  \newline%
+  \vskip 1.7em%
+}
+
+
+\ifthenelse{\boolean{@imagetitlepage}}
+{
+	\defbeamertemplate*{title page}{bla}[1][t]
+	{
+		\frametitle{\inserttitle}
+		\begin{center}
+		\vspace{-0.1cm}
+		\insertsubtitle
+		\vspace{0.3cm}
+		\inserttitlegraphic
+		\vspace{0.5cm}
+		\insertdate\\
+		\vspace{0.5cm}
+		\insertauthor
+		\end{center}
+	}
+}
+
+  
+\setbeamerfont{structure}{series=\bfseries,family=\rmfamily}
+ 
+
+\setbeamertemplate{frametitle}[default][center]
+
+\setbeamertemplate{itemize item}{$\bullet$}
+\setbeamertemplate{itemize subitem}{--}
+\setbeamertemplate{itemize subsubitem}{$\bullet$}
+
+
+% Only colorize urls
+\hypersetup{
+	colorlinks,
+	allcolors=.,
+	urlcolor=blue,
+}
+
+
+\RequirePackage{lgdv/code_listing}
+\RequirePackage{lgdv/lgdv_math}

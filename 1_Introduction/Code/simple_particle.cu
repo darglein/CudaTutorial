@@ -51,6 +51,9 @@ int main(int argc, char *argv[]) {
     updateParticles<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(
         d_particles.data().get(), N, dt);
   }
+
+  updateParticles<<<dim3(1, 1), dim3(4, 4)>>>(d_particles.data().get(), N, dt);
+
   thrust::copy(d_particles.begin(), d_particles.end(), particles.begin());
 
   for (Particle &p : particles) {

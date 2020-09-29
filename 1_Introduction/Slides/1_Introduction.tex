@@ -1,8 +1,8 @@
-% or aspectratio=43
+% or aspectratio=43, +handout
 \documentclass[aspectratio=169]{beamer}
 
 % remove this line for an english presentation
-\usepackage{ngerman}
+%\usepackage{ngerman}
 
 % Optional arguments (separate by comma):
 % darkmode			- Black background and white font
@@ -234,11 +234,10 @@ int main(int argc, char *argv[])
 	\begin{itemize}
 		\item The launch arguments define how many instances of the kernel are run on the GPU
 \begin{lstlisting}
-myKernel<<<num_blocks, threads_per_block>>>(args, ...);
+myKernel<<<num_blocks, threads_per_block>>>();
 \end{lstlisting}
 		\item The first parameter is the number of blocks
 		\item The second parameter is the number of threads per block
-		\item Arguments can be passed to kernels and are automatically uploaded to device memory
 	\end{itemize}
 \end{frame}
 
@@ -252,6 +251,21 @@ myKernel<<<1,256>>>();
 		\item Launch 8 blocks with 32 threads each (256 threads total):
 \begin{lstlisting}
 myKernel<<<8,32>>>();
+\end{lstlisting}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Launch Arguments}
+	The launch arguments can be 2- and 3-Dimensional. This makes distributing threads over grids (for example images) easier.
+	\begin{itemize}
+		\item Launch 2 blocks with 32x32 threads ($2 \cdot 32 \cdot 32 = 2048$ threads total):
+\begin{lstlisting}
+myKernel<<<2,dim3(32,32,1)>>>();
+\end{lstlisting}
+		\item Launch 2x2 blocks with 8x8 threads each ($2\cdot 2 \cdot 8 \cdot 8 = 256$ threads total):
+\begin{lstlisting}
+myKernel<<<dim3(2,2,1),dim3(8,8,1)>>>();
 \end{lstlisting}
 	\end{itemize}
 \end{frame}
@@ -274,7 +288,11 @@ int tid = threadIdx.x;
 \begin{lstlisting}
 int blockSize = blockDim.x;
 \end{lstlisting}	
-	\item \textbf{Note}: We can also pass 2 or 3 dimensional launch arguments
+	\item In most kernels the global thread id is required:
+\begin{lstlisting}
+int global_tid = blockDim.x * blockIdx.x + threadIdx.x;
+\end{lstlisting}
+	\item \textbf{Note}: For 2-,3D arguments the y and z entry is used.
 \end{itemize}
 \end{frame}
 
@@ -291,7 +309,7 @@ __global__ void helloCudaKernel(int a)
 
 int main(int argc, char *argv[])
 {
-	// Launch the kernel with 2 block, each 4 threads
+	// Launch the kernel with 2 blocks, each 4 threads
 	helloCudaKernel<<<2,4>>>(42);
 	
 	// Wait until completion
@@ -306,9 +324,13 @@ int main(int argc, char *argv[])
 \begin{frame}[fragile]
 \frametitle{Kernel Arguments}
 
+\begin{lstlisting} 
+myKernel<<<1,1024>>>(5, device_data, dt);
+\end{lstlisting}
+
 \begin{itemize}
 	\item Kernel arguments are passed by value
-	\item Automatically uploaded to GPU memory
+	\item Automatically uploaded to GPU memory (only the value and not the data behind a pointer)
 	\item Max size 256B (sum of all arguments)
 	\item Never pass a pointer to CPU  memory!
 \end{itemize}
@@ -337,7 +359,7 @@ thrust::device_vector<float> device_data(200);
 \end{frame}
 
 
-\frame{
+\begin{frame}[fragile]
 	\frametitle{Particle Example}
 	\begin{itemize}
 		\item Allocate memory
@@ -346,8 +368,32 @@ thrust::device_vector<float> device_data(200);
 	\end{itemize}
 	
 	See example code...
-}
+\end{frame}
 
+\begin{frame}[fragile]
+	\frametitle{Blocks and Warps}
+\begin{itemize}
+\item Internally, a threadblock is further subdivided into \textbf{Warps} of 32 threads
+\item For example after launching 2 blocks of 128 threads
+\begin{lstlisting}
+myKernel<<<2,128>>>();
+\end{lstlisting}
+\item Each block consists of 4 Warps ($4\cdot 32 = 128$)
+\item And we have launched 8 Warps in total
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Blocks and Warps}
+\begin{itemize}
+	\item The block size should be a multiple of the Warp size
+	\item All Threads in a warp \textbf{share the program counter}
+	\item [$\rightarrow$] Excessive branching in warps should be avoided.
+	\item [$\rightarrow$] High branching is usually called \textbf{warp divergence}.
+\end{itemize}
+
+
+\end{frame}
 
 
 \frame{
@@ -374,15 +420,19 @@ Checks for illegal memory accesses, unaligned reads/writes, ...
 \begin{lstlisting}[language=bash]
 cuda-memcheck ./helloWorld
 \end{lstlisting}
-Output:
+Example Output:
 \begin{lstlisting}[language=bash]
 Invalid __global__ write of size 4
 	at 0x000001b8 in segfault.cu:26:void oob<unsigned int=128>(int*, int)
 	by thread (127,0,0) in block (15,0,0)
 	Address 0x7f0717602000 is out of bounds
 \end{lstlisting}
+\textbf{Notes}
+\begin{itemize}
+\item Requires -G compiler flag for NVCC
+\item Run cuda-memcheck before submitting your code
+\end{itemize}
 
-\textbf{Note:} Requires -G compiler flag for NVCC
 \end{frame}
 
 
