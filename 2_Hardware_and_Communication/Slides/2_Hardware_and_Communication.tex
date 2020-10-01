@@ -334,13 +334,13 @@ Threads communicate and are synchronized depending on their hierarchy level.
 	\item<3->[] \textbf{Between threads of the same block}
 \begin{itemize}
 	\item<4-> Communication via shared memory
-	\item<4-> Barrier synchronization with \texttt{\_\_syncThreads}
+	\item<4-> Barrier synchronization with \texttt{\_\_syncthreads}
 \end{itemize}
 	\item<5->[] \textbf{Between threads of the same Warp}
 	\begin{itemize}
 		\item<6-> Communication via registers 
 		\item<6-> Implicit synchronization (Pascal and earlier)
-		\item<6-> Barrier synchronization with \texttt{\_\_syncWarp} (Volta, Turing, Ampere)
+		\item<6-> Barrier synchronization with \texttt{\_\_syncwarp} (Volta, Turing, Ampere)
 
 	\end{itemize}
 \end{itemize}
@@ -460,6 +460,78 @@ T atomicCAS(T* address, T compare, T val);
 \end{minipage}
 \end{frame}
 
+
+\begin{frame}[fragile]
+\frametitle{Shared Memory}
+
+Shared Memory (SMEM) is...
+\begin{itemize}
+	\item located inside the SM
+	\item accessible from all threads within a block
+	\item very fast (100x) compared to global memory
+\end{itemize}
+SMEM is typically used for...
+\begin{itemize}
+	\item communication between threads within a block
+	\item caching global memory
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\frametitle{Example: Red-Blue Collision Detection + SMEM}
+Idea:
+\begin{itemize}
+	\item So far, each particle is loaded $n$ times from global memory
+	\item[$\rightarrow$] Improve performance by caching the particles in SMEM
+\end{itemize}
+Implementation (one block):
+\begin{enumerate}
+	\item Load k red particles and k blue particles to shared memory
+	\item Test all $k^2$ intersections and write output
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Shared Memory (Statically Allocated)}
+\begin{itemize}
+	\item Created by adding the \texttt{\_\_shared\_\_} keyword to a local variable
+	\item Usually used in combination with templating the block size
+\end{itemize}
+\begin{lstlisting}
+template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y, int K>
+__global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
+{
+    __shared__ Particle shared_ps1[BLOCK_SIZE_X * K];
+    __shared__ Particle shared_ps2[BLOCK_SIZE_Y * K];
+    // ...
+    shared_ps1[local_offset_i] = ps1[global_offset_i];
+    shared_ps2[local_offset_j] = ps2[global_offset_j];
+    __syncthreads();
+    // ...
+}
+\end{lstlisting}
+\end{frame}
+
+
+\frame{
+	\frametitle{Red-Blue Collision Detection Results}
+
+
+	\begin{tabular}{l|r}
+	Name & Time \\	
+	\hline
+	GTX 2080 TI  & 0.304 ms\\
+	GTX 2080 TI + SMEM  & 0.127 ms\\
+	i9-7940X (1 Thread) & 8360 ms \\
+	i9-7940X (28 Threads) & 384.1 ms \\
+\end{tabular}
+\\ \vspace{1cm}
+
+Full Code: \url{https://github.com/darglein/CudaTutorial/tree/master/2_Hardware_and_Communication/Code}
+}
 
 \frame{
 	\frametitle{Literature}

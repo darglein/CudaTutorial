@@ -21,7 +21,6 @@ struct Particle {
 };
 
 __device__ int GlobalThreadId() { return blockIdx.x * gridDim.x + threadIdx.x; }
-
 int iDivUp(int a, int b) { return (a + b - (1)) / b; }
 
 __global__ static void updateParticles(Particle *particles, int N, float dt) {

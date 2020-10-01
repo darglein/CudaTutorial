@@ -28,7 +28,6 @@ The target audience are undergraduate students with basic programming knowledge 
  * Registers
  * Synchronization
  * Communication (Memory, Registers)
- * Inverse Hashing
  * Atomic Operations
  * Shared Memory
  * Example: Red-Blue Collision Detection
