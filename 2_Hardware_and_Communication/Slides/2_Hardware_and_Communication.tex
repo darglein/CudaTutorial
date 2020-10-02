@@ -460,6 +460,29 @@ T atomicCAS(T* address, T compare, T val);
 \end{minipage}
 \end{frame}
 
+\begin{frame}[fragile]
+\begin{lstlisting}
+__global__ void RBPC(Particle* particles1, Particle* particles2, int n, int m, int2* list, int* counter)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (i >= n || j >= m) return;
+
+    const Particle& p1 = particles1[i];
+    const Particle& p2 = particles2[j];
+    if (Collide(p1, p2))
+    {
+        int index = atomicAdd(counter, 1);
+        if (index < MAX_COLLISIONS)
+        {
+            list[index] = {i, j};
+        }
+    }
+}
+\end{lstlisting}
+\end{frame}
+
+
 
 \begin{frame}[fragile]
 \frametitle{Shared Memory}
@@ -516,6 +539,8 @@ __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
 \end{frame}
 
 
+
+
 \frame{
 	\frametitle{Red-Blue Collision Detection Results}
 
@@ -527,10 +552,10 @@ __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
 	GTX 2080 TI + SMEM  & 0.127 ms\\
 	i9-7940X (1 Thread) & 8360 ms \\
 	i9-7940X (28 Threads) & 384.1 ms \\
-\end{tabular}
+\end{tabular}\textbf{}
 \\ \vspace{1cm}
 
-Full Code: \url{https://github.com/darglein/CudaTutorial/tree/master/2_Hardware_and_Communication/Code}
+Full Code: \url{https://github.com/darglein/CudaTutorial/blob/master/2_Hardware_and_Communication/Code/collision_detection.cu}
 }
 
 \frame{

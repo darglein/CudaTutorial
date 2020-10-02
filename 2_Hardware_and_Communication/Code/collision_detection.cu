@@ -11,8 +11,7 @@
 
 #include <thrust/device_vector.h>
 
-const int max_collisions = 100000;
-const int shared_factor  = 4;
+const int MAX_COLLISIONS = 100000;
 
 __device__ int GlobalThreadId()
 {
@@ -52,30 +51,29 @@ __global__ void RedBlueParticleCollision(Particle* particles1, Particle* particl
     if (Collide(p1, p2))
     {
         int index = atomicAdd(counter, 1);
-        if (index < max_collisions)
+        if (index < MAX_COLLISIONS)
         {
             list[index] = {i, j};
         }
     }
 }
 
-template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y>
+template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y, int K>
 __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* particles2, int n, int m, int2* list,
                                                int* counter)
 {
-    __shared__ float4 shared_particles1[BLOCK_SIZE_X * shared_factor];
-    __shared__ float4 shared_particles2[BLOCK_SIZE_Y * shared_factor];
+    __shared__ float4 shared_particles1[BLOCK_SIZE_X * K];
+    __shared__ float4 shared_particles2[BLOCK_SIZE_Y * K];
 
-
-    int block_i = blockIdx.x * blockDim.x * shared_factor;
-    int block_j = blockIdx.y * blockDim.y * shared_factor;
+    int block_i = blockIdx.x * blockDim.x * K;
+    int block_j = blockIdx.y * blockDim.y * K;
 
     if (block_i >= n || block_j >= m) return;
 
     // Load to smem
-    if (threadIdx.y < shared_factor)
+    if (threadIdx.y < K)
     {
-        static_assert(shared_factor <= BLOCK_SIZE_X && shared_factor <= BLOCK_SIZE_Y, "a");
+        static_assert(K <= BLOCK_SIZE_X && K <= BLOCK_SIZE_Y, "a");
         int offset                = threadIdx.x + threadIdx.y * 16;
         shared_particles1[offset] = ((float4*)particles1)[block_i + offset];
         shared_particles2[offset] = ((float4*)particles2)[block_j + offset];
@@ -85,9 +83,9 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
     __syncthreads();
 
-    for (int k = 0; k < shared_factor; ++k)
+    for (int k = 0; k < K; ++k)
     {
-        for (int l = 0; l < shared_factor; ++l)
+        for (int l = 0; l < K; ++l)
         {
             int local_i = k * blockDim.x + threadIdx.x;
             int local_j = l * blockDim.y + threadIdx.y;
@@ -106,7 +104,7 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
             if (Collide(p1, p2))
             {
                 int index = atomicAdd(counter, 1);
-                if (index < max_collisions)
+                if (index < MAX_COLLISIONS)
                 {
                     list[index] = {i, j};
                 }
@@ -119,6 +117,8 @@ int main(int argc, char* argv[])
 {
     int n = 5000;
     int m = 5000;
+
+    const int K = 4;
 
     const int block_size_x = 16;
     const int block_size_y = 16;
@@ -142,10 +142,10 @@ int main(int argc, char* argv[])
     thrust::device_vector<Particle> d_particles2(particles2);
 
     // Add padding to simplify shared memory kernel
-    d_particles1.resize(n + 16 * shared_factor);
-    d_particles2.resize(m + 16 * shared_factor);
+    d_particles1.resize(n + 16 * K);
+    d_particles2.resize(m + 16 * K);
 
-    thrust::device_vector<int2> d_collision_list(max_collisions);
+    thrust::device_vector<int2> d_collision_list(MAX_COLLISIONS);
     thrust::device_vector<int> d_collision_count(1, 0);
     d_collision_count[0] = 0;
 
@@ -164,11 +164,11 @@ int main(int argc, char* argv[])
     std::cout << "Found " << num_collisions << " collisions on the GPU in " << time_gpu1 << " ms" << std::endl;
     d_collision_count[0] = 0;
     {
-        int blocks_x = iDivUp(n, block_size_x * shared_factor);
-        int blocks_y = iDivUp(m, block_size_y * shared_factor);
+        int blocks_x = iDivUp(n, block_size_x * K);
+        int blocks_y = iDivUp(m, block_size_y * K);
 
         CudaScopedTimer timer(time_gpu2);
-        RedBlueParticleCollisionShared<block_size_x, block_size_y>
+        RedBlueParticleCollisionShared<block_size_x, block_size_y, K>
             <<<dim3(blocks_x, blocks_y, 1), dim3(block_size_x, block_size_y, 1)>>>(
                 d_particles1.data().get(), d_particles2.data().get(), n, m, d_collision_list.data().get(),
                 d_collision_count.data().get());

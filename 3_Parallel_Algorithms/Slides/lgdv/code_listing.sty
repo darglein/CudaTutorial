@@ -1,0 +1,112 @@
+\RequirePackage{listings}
+
+\ifthenelse{\boolean{@darkmode}}
+{
+	\definecolor{codecolor}{gray}{1}
+	\definecolor{commentcolor}{rgb}{0,0.9,0}
+	\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+	\definecolor{keywordcolor}{rgb}{.4,.8,1}
+	\definecolor{backcolour}{gray}{0.2}
+	\definecolor{stringcolor}{rgb}{0,0.8,0.8}
+	\definecolor{functioncolor}{rgb}{0.8,0,0}
+	\definecolor{typecolor}{rgb}{0.8,0,0}
+}
+{
+	\definecolor{codecolor}{gray}{0}
+	\definecolor{commentcolor}{rgb}{0.4,0.4,0.4}
+	\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+	\definecolor{keywordcolor}{rgb}{0,0,1}
+	\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+	\definecolor{stringcolor}{rgb}{0,0.6,0.6}
+	\definecolor{functioncolor}{rgb}{0.6,0,0}
+	\definecolor{typecolor}{rgb}{0,0.5,0}
+}
+%default language
+\lstset{language=C++}
+
+%add vector keywords
+\lstset{morekeywords=
+{
+%		
+}}
+
+%make existing function names bold
+\lstset%
+{%
+	%
+	% Build in functions and variables
+	%
+	emph=[1]%
+	{%
+		layout,uniform,
+		__device__, __global__, __host__, __constant__, __shared__, __noinline__,__restrict__,__launch_bounds__,
+		__syncthreads, __any, pragma, unroll, extern,
+		gridDim, blockIdx, blockDim, threadIdx, warpSize,
+		min, max, abs, sqrt, exp, pi, pow, log, floor,
+		texture, tex1Dfetch, tex1D, tex2D, tex3D,
+		cudaReadModeElementType,
+		atomicAdd, atomicSub, atomicMin, atomicMax, atomicExch, atomicAnd, atomicOr, atomicXor,
+		atomicInc, atomicDec, atomicCAS, 
+		cudaMalloc, cudaFree,cudaDeviceSynchronize,__syncwarp,__ldg, cudaBindTexture,cudaUnbindTexture,
+		cudaMallocHost,cudaStreamCreate,cudaStreamDestroy,cudaMemcpyAsync,
+		% memcpy
+		cudaMemcpy,cudaMemcpyDeviceToDevice, cudaMemcpyHostToDevice, cudaMemcpyDeviceToHost, cudaMemcpyToSymbol,
+		cudaProfilerStart,cudaProfilerStop,
+		__shfl_down,__shfl_up,
+		CUDA_ASSERT
+	},
+	emphstyle=[1]{\bfseries\color{functioncolor}},%
+	%
+	% Name Spaces
+	%
+	emph=[2]%
+	{%
+		thrust,std,Saiga,CUDA,glm
+	},
+	emphstyle=[2]{\bfseries\color{typecolor}},
+	%
+	% Types / Classes / Structs
+	%
+	emph=[3]%
+	{%
+		Vec3b, Mat, size_t,
+		vec2, vec3, vec4, mat3, mat4, quat,
+		char1, uchar1, char2, uchar2, char3, uchar3, char4, uchar4,
+		short1, ushort1, short2, ushort2, short3, ushort3, short4, ushort4,
+		int1, uint1, int2, uint2, int3, uint3, int4, uint4,
+		long1, ulong1, long2, ulong2, long3, ulong3, long4, ulong4,
+		float1, float2, float3, float4, double2, dim3,
+		vector, device_vector,host_vector,cudaStream_t, 
+		% Saiga classes
+		Particle, ArrayView, ThreadInfo, CudaScopedTimer,CudaScopedTimerPrint,
+		pinned_vector,CudaStream,CudaEvent,T
+	},
+	emphstyle=[3]{\bfseries\color{typecolor}},
+}
+
+
+
+
+\lstdefinestyle{mystyle}
+{
+	basicstyle=\ttfamily \footnotesize \color{codecolor},
+	backgroundcolor=\color{backcolour},   
+	commentstyle=\color{commentcolor},
+	keywordstyle=\bfseries\color{keywordcolor},
+	numberstyle=\tiny\color{codegray},
+	stringstyle=\color{stringcolor},
+	breakatwhitespace=false,         
+	breaklines=true,                 
+	captionpos=b,                    
+	keepspaces=true,                 
+	%numbers=left,                    
+	%numbersep=5pt,                  
+	showspaces=false,                
+	showstringspaces=false,
+	showtabs=false,                  
+	tabsize=2
+}
+
+
+
+\lstset{style=mystyle}
