@@ -558,6 +558,78 @@ __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
 Full Code: \url{https://github.com/darglein/CudaTutorial/blob/master/2_Hardware_and_Communication/Code/collision_detection.cu}
 }
 
+
+
+\begin{frame}[fragile]
+\frametitle{Shuffle}
+
+	\begin{mdframed}[frametitle={CUDA Programming Guide}]
+The \texttt{\_\_shfl\_sync()} intrinsics permit \textbf{exchanging of a variable} between threads within a warp \textbf{without use of shared memory}. The exchange occurs simultaneously for all active threads within the warp (and named in mask), moving 4 or 8 bytes of data per thread depending on the type. 
+
+Threads within a warp are referred to as \textbf{lanes}, and may have an index between 0 and warpSize-1 (inclusive). \href{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#warp-shuffle-functions}{Link}
+\end{mdframed}
+\vspace{0.5cm}
+\textbf{Example:}
+\begin{lstlisting}
+int value = //...
+
+// Broadcast the value of lane 0 across a warp
+value = __shfl_sync(0xffffffff, value, 0);
+\end{lstlisting}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Shuffle}
+
+\textbf{shfl}
+\begin{itemize}
+	\item[] Direct copy from indexed lane
+\begin{lstlisting}
+T __shfl_sync(unsigned mask, T var, int srcLane, 
+								int width=warpSize);
+\end{lstlisting}
+\end{itemize}
+
+\textbf{shfl\_up}
+\begin{itemize}
+	\item[] Copy from a lane with lower ID relative to caller
+\begin{lstlisting}
+T __shfl_up_sync(unsigned mask, T var, unsigned int delta, 
+								int width=warpSize);
+\end{lstlisting}
+\end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\frametitle{Shuffle}
+
+\textbf{shfl\_down}
+\begin{itemize}
+	\item[] Copy from a lane with higher ID relative to caller
+\begin{lstlisting}
+T __shfl_down_sync(unsigned mask, T var, unsigned int delta, 
+							int width=warpSize);
+\end{lstlisting}
+\end{itemize}
+
+\textbf{shfl\_xor}
+\begin{itemize}
+	\item[] Copy from a lane based on bitwise XOR of own lane ID
+\begin{lstlisting}
+T __shfl_xor_sync(unsigned mask, T var, int laneMask, 
+							int width=warpSize);
+\end{lstlisting}
+\end{itemize}
+
+\end{frame}
+
+
 \frame{
 	\frametitle{Literature}
 	%
