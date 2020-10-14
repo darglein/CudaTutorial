@@ -6,7 +6,7 @@
 BasedOnStyle: Google
 IndentWidth: 4
 BreakBeforeBraces: Allman
-ColumnLimit: 80
+ColumnLimit: 120
 DerivePointerAlignment: false
 PointerAlignment: Left
 MaxEmptyLinesToKeep: 3

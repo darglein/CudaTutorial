@@ -190,7 +190,7 @@ myKernel<<<1,1024>>>();
 \end{itemize}
 \begin{lstlisting}[language=bash]
 mkdir build && cd build
-CXX=g++-9 CUDAHOSTCXX=g++-8 cmake ..
+CXX=g++-9 CUDAHOSTCXX=g++-9 cmake ..
 \end{lstlisting}
 \begin{itemize}
 	\item Compile and run
@@ -226,6 +226,26 @@ int main(int argc, char *argv[])
 }
 \end{lstlisting}
 \end{frame}
+
+\begin{frame}[fragile]
+\frametitle{CMake and CUDA}
+	\begin{itemize}
+	\item We recommend CMake version 3.18 and newer for the latest features
+
+		\end{itemize}
+\begin{lstlisting}[language=bash]
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+project ("Cuda Intro 1" VERSION 1.0.0 LANGUAGES CXX CUDA)
+
+# CMake automatically compiles .cu file with NVCC
+add_executable(hello_world hello_world.cu)
+
+# Compile for Pascal and newer cards
+set_property(TARGET hello_world 
+	PROPERTY CUDA_ARCHITECTURES 52-virtual )
+\end{lstlisting}
+\end{frame}
+
 
 
 
@@ -347,7 +367,7 @@ myKernel<<<1,1024>>>(5, device_data, dt);
 	\begin{itemize}
 		\item cudaMemcpy
 	\end{itemize}
-	We recommend to use the \textit{Thrust} library for memory management:
+	\textbf{We recommend to use the \textit{Thrust} library for memory management:}
 \begin{lstlisting}
 thrust::device_vector<float> device_data(200);
 \end{lstlisting}
@@ -361,13 +381,80 @@ thrust::device_vector<float> device_data(200);
 
 \begin{frame}[fragile]
 	\frametitle{Particle Example}
-	\begin{itemize}
-		\item Allocate memory
-		\item Initialize on the CPU
-		\item Modify on the GPU
-	\end{itemize}
+	Task:
+	\begin{enumerate}
+		\item Allocate memory for particles
+		\item Initialize particles and upload them to the GPU
+		\item Integrate Position/Velocity of the particles
+		\item Download result to the CPU
+	\end{enumerate}
 	
-	See example code...
+	\href{https://github.com/darglein/CudaTutorial/blob/master/1_Introduction/Code/simple_particle.cu}{Source @GitHub}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Particle Example (1.)}
+\begin{lstlisting}
+const int N     = 25;
+const int steps = 3;
+float dt        = 0.1;
+
+// Allocate CPU and GPU memory
+std::vector<Particle> particles(N);
+thrust::device_vector<Particle> d_particles(N);
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Particle Example (2.)}
+\begin{lstlisting}
+// Initialize on the CPU
+for (Particle& p : particles)
+{
+    p.position = vec3::Zero();
+    p.velocity = vec3::Random();
+}
+
+// Upload memory
+thrust::copy(particles.begin(), particles.end(), d_particles.begin());
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Particle Example (3.)}
+\begin{lstlisting}
+__global__ static void update(Particle* particles, int N, float dt)
+{
+    int tid = GlobalThreadId();
+    if (tid >= N) return;
+    Particle& p = particles[tid];
+    p.position += p.velocity * dt;
+    p.velocity += vec3(0, -9.81, 0) * dt;
+}
+
+// ...
+for (int i = 0; i < steps; ++i)
+{
+    updateParticles<<<iDivUp(N, 128), 128>>>(
+    	d_particles.data().get(), N, dt);
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Particle Example (4.)}
+\begin{lstlisting}
+// Download
+thrust::copy(d_particles.begin(), d_particles.end(), 
+	particles.begin());
+
+// Debug Print
+for (Particle& p : particles)
+{
+    std::cout << p.position.transpose() << " " 
+    	<< p.velocity.transpose() << std::endl;
+}
+\end{lstlisting}
 \end{frame}
 
 \begin{frame}[fragile]
