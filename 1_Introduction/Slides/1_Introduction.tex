@@ -43,6 +43,33 @@
 	\titlepage
 }
 
+\begin{frame}[fragile]
+\frametitle{Advanced Game Physics (AGPhys)}
+\begin{itemize}
+\item Computer Science Master Project (10 ECTS)
+\item 5 Assignments (60\%)
+\item Group Project, 4 Weeks (40\%)
+\end{itemize}
+\hrule
+\vspace{0.5cm}
+
+\begin{minipage}{0.48\linewidth}
+
+\centering
+	\textbf{4 Lectures CUDA Programming}
+	\begin{figure}
+\includegraphics[height=.35\textheight]{cuda}
+	\end{figure}
+
+\end{minipage}
+\begin{minipage}{0.48\linewidth}
+\centering
+\textbf{   6 Lectures Realtime Physics Simulation}
+   	\begin{figure}
+   \includegraphics[height=.35\textheight]{agphys}
+   	\end{figure}
+\end{minipage}
+\end{frame}
 
 \frame{
 	\frametitle{CUDA Course Overview}
@@ -156,7 +183,7 @@
 
 
 \begin{frame} [fragile]
-	\frametitle{Programming Model}
+	\frametitle{CPU Parallel Programming}
 	\textbf{CPU (C++ Threads)}
 	\begin{itemize}
 		\item Threads are launched using the C++ std lib
@@ -167,16 +194,48 @@
 std::thread t1(myFunction);
 \end{lstlisting}
 	\end{itemize}
+	\textbf{CPU (OpenMP)}
+		\begin{itemize}
+			\item Parallelize sections or loops
+			\item Same code is run by multiple threads with different indices or TIDs
+			\item %
+\begin{lstlisting} 
+#pragma omp parallel for num_threads(8)
+for(int i = 0; i < N; ++i) {
+	// ...
+\end{lstlisting}
+		\end{itemize}
+\end{frame}
+
+
+\begin{frame} [fragile]
+	\frametitle{GPU Parallel Programming}
+
 	\textbf{GPU (CUDA)}
 		\begin{itemize}
-			\item Kernels (GPU functions) are launched using the CUDA API
-			\item A kernel is executed by multiple threads
-			\item All threads from one launch execute the same code
+			\item Requires special GPU functions (Kernels)
+			\item Kernels are launched with multiple threads
+			\item All threads from one launch execute the same code (the kernel)
+			\item Each thread can compute its own unique thread id
 			\item %
 \begin{lstlisting} 
 // Launch 1024 threads that execute 'myKernel'
 myKernel<<<1,1024>>>();
 \end{lstlisting}
+			\item[$\rightarrow$] Similar idea to OpenMP
+		\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame} [fragile]
+	\frametitle{Sample Code Dependencies}
+		\begin{itemize}
+			\item Latest NVidia Graphics Driver \href{https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa}{[Ubuntu]}
+			\item CUDA Toolkit 10.2 or newer \href{https://developer.nvidia.com/cuda-downloads}{[nvidia.com]}
+			\item CMake 3.18 or newer \href{https://github.com/Kitware/CMake/tags}{[GitHub]}
+			\item Eigen (latest version from git) \href{https://gitlab.com/libeigen/eigen}{[GitLab]}
 		\end{itemize}
 \end{frame}
 

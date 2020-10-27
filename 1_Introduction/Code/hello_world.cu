@@ -8,13 +8,16 @@
 
 #include <cuda_runtime.h>
 
-__global__ void helloCudaKernel() {
-  printf("Hello from thread %d!\n", threadIdx.x);
+
+__global__ void helloCudaKernel()
+{
+    printf("Hello from thread %d!\n", threadIdx.x);
 }
 
-int main(int argc, char *argv[]) {
-  helloCudaKernel<<<1, 8>>>();
-  cudaDeviceSynchronize();
+int main(int argc, char* argv[])
+{
+    helloCudaKernel<<<1, 8>>>();
+    cudaDeviceSynchronize();
 
-  return 0;
+    return 0;
 }

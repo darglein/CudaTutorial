@@ -9,6 +9,7 @@
 
 #include <iostream>
 
+#include <cuda_profiler_api.h>
 #include <thrust/device_vector.h>
 
 const int MAX_COLLISIONS = 100000;
@@ -62,11 +63,13 @@ template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y, int K>
 __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* particles2, int n, int m, int2* list,
                                                int* counter)
 {
-    __shared__ float4 shared_particles1[BLOCK_SIZE_X * K];
-    __shared__ float4 shared_particles2[BLOCK_SIZE_Y * K];
+    __shared__ float4 shared_particles1[16 * K];
+    __shared__ float4 shared_particles2[16 * K];
 
-    int block_i = blockIdx.x * blockDim.x * K;
-    int block_j = blockIdx.y * blockDim.y * K;
+
+    int block_i = blockIdx.x * 16 * K;
+    int block_j = blockIdx.y * 16 * K;
+    int tid     = threadIdx.x + threadIdx.y * blockDim.x;
 
     if (block_i >= n || block_j >= m) return;
 
@@ -83,25 +86,28 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
     __syncthreads();
 
-    for (int k = 0; k < K; ++k)
+
+    for (int k = 0; k < K * (16 / BLOCK_SIZE_X); ++k)
     {
-        for (int l = 0; l < K; ++l)
+        int local_i = k * blockDim.x + threadIdx.x;
+        int i       = block_i + local_i;
+        //        if (i >= n) continue;
+        Particle p1 = ((Particle*)shared_particles1)[local_i];
+
+        for (int l = 0; l < K * (16 / BLOCK_SIZE_Y); ++l)
         {
-            int local_i = k * blockDim.x + threadIdx.x;
             int local_j = l * blockDim.y + threadIdx.y;
+            int j       = block_j + local_j;
+            Particle p2 = ((Particle*)shared_particles2)[local_j];
+            //            if (j >= m) continue;
 
-            int i = block_i + local_i;
-            int j = block_j + local_j;
+            //            p2.position.x() += ((j >= m) | (i >= n)) * 1000.f;
+            if (j >= m | i >= n) p2.position.x() = std::numeric_limits<float>::quiet_NaN();
 
-            if (i >= n || j >= m) continue;
-
-
-
-            const Particle& p1 = ((Particle*)shared_particles1)[local_i];
-            const Particle& p2 = ((Particle*)shared_particles2)[local_j];
-
+            //            bool con = j >= m | i >= n | Collide(p1, p2);
 
             if (Collide(p1, p2))
+            //            if (con)
             {
                 int index = atomicAdd(counter, 1);
                 if (index < MAX_COLLISIONS)
@@ -115,13 +121,13 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
 int main(int argc, char* argv[])
 {
-    int n = 5000;
-    int m = 5000;
+    int n = 10000;
+    int m = 10000;
 
     const int K = 4;
 
     const int block_size_x = 16;
-    const int block_size_y = 16;
+    const int block_size_y = 8;
 
     std::vector<Particle> particles1(n);
     std::vector<Particle> particles2(m);
@@ -129,12 +135,12 @@ int main(int argc, char* argv[])
     srand(1056735);
     for (Particle& p : particles1)
     {
-        p.position = vec3::Random() * 10;
+        p.position = vec3::Random() * 25;
         p.radius   = 1;
     }
     for (Particle& p : particles2)
     {
-        p.position = vec3::Random() * 10;
+        p.position = vec3::Random() * 25;
         p.radius   = 1;
     }
 
@@ -150,7 +156,11 @@ int main(int argc, char* argv[])
     d_collision_count[0] = 0;
 
 
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+    cudaProfilerStart();
+
     float time_gpu1, time_gpu2;
+    if (1)
     {
         int blocks_x = iDivUp(n, block_size_x);
         int blocks_y = iDivUp(m, block_size_y);
@@ -162,7 +172,11 @@ int main(int argc, char* argv[])
 
     int num_collisions = d_collision_count[0];
     std::cout << "Found " << num_collisions << " collisions on the GPU in " << time_gpu1 << " ms" << std::endl;
+    //    cudaSharedMemBankSizeEightByte
+
+    //    cudaFuncSetSharedMemConfig()
     d_collision_count[0] = 0;
+    //    if (0)
     {
         int blocks_x = iDivUp(n, block_size_x * K);
         int blocks_y = iDivUp(m, block_size_y * K);
@@ -173,6 +187,8 @@ int main(int argc, char* argv[])
                 d_particles1.data().get(), d_particles2.data().get(), n, m, d_collision_list.data().get(),
                 d_collision_count.data().get());
     }
+
+    cudaProfilerStop();
     cudaDeviceSynchronize();
 
     num_collisions = d_collision_count[0];

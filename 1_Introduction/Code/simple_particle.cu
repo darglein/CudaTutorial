@@ -24,7 +24,7 @@ struct Particle
 // ===== Helper functions ====
 __device__ inline int GlobalThreadId()
 {
-    return blockIdx.x * gridDim.x + threadIdx.x;
+    return blockIdx.x * blockDim.x + threadIdx.x;
 }
 inline int iDivUp(int a, int b)
 {

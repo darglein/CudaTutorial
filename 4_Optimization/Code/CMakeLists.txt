@@ -9,13 +9,20 @@ find_package(OpenMP REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr -fopenmp")
-SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
-SET(CMAKE_BUILD_TYPE RelWithDebInfo)
+list(APPEND MY_CUDA_FLAGS "--expt-relaxed-constexpr")
+list(APPEND MY_CUDA_FLAGS "-Xcompiler=-fopenmp")
+list(APPEND MY_CUDA_FLAGS "-Xcompiler=-g")
+list(APPEND MY_CUDA_FLAGS "-lineinfo")
 
-include_directories(.)
 
-add_executable(collision_detection collision_detection.cu Timer.h)
-target_link_libraries(collision_detection CUDA::cudart Eigen3::Eigen OpenMP::OpenMP_CXX)
-set_property(TARGET collision_detection PROPERTY CUDA_ARCHITECTURES 50)
 
+add_executable(collision_detection collision_detection.cu)
+target_link_libraries(collision_detection Eigen3::Eigen CUDA::cudart)
+set_property(TARGET collision_detection PROPERTY CUDA_ARCHITECTURES 52-virtual 75)
+target_compile_options(collision_detection PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${MY_CUDA_FLAGS}>)
+
+
+add_executable(simple_particle simple_particle.cu)
+target_link_libraries(simple_particle Eigen3::Eigen CUDA::cudart)
+set_property(TARGET simple_particle PROPERTY CUDA_ARCHITECTURES 52-virtual 75)
+target_compile_options(simple_particle PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${MY_CUDA_FLAGS}>)

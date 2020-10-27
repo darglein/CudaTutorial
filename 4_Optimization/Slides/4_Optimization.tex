@@ -183,7 +183,7 @@ nvcc -arch=sm_61 -g main.cu -o main
 		Maxwell & compute\_52 & sm\_52 & Geforce 900 Series\\
 		Pascal & compute\_61 & sm\_61 & Geforce 1000 Series\\
 		Volta & compute\_70 & sm\_70 & Titan-V\\
-		Turing & compute\_80 & sm\_80 & RTX 2000 Series\\	
+		Turing & compute\_75 & sm\_75 & RTX 2000 Series\\	
 	    Ampere & compute\_80 & sm\_80 & RTX 3000 Series\\	
 	\end{tabular}
 \\
@@ -474,17 +474,20 @@ vec4 v = velocities[tid];
 
 
 \begin{frame}[fragile]
-\frametitle{Profiling}
-First, make sure the profiling timeline is consistent
+\frametitle{Profiling Tools}
+Legacy Tools (Kepler - Volta)
 \begin{itemize}
-	\item The simulation is initialized correctly
-	\item The simulation runs for a fixed amount of steps
-	\item No user input is required during a simulation
+	\item Nvidia Visual Profiler (NVVP)
+	\item NVProf (command line profiler)
 \end{itemize}
-Enable the \texttt{CUDA\_PROFILING} flag in CMake
-\begin{lstlisting}[language=bash]
-cmake -DCUDA_PROFILING=ON ..
-\end{lstlisting}
+\hrulefill \\
+New Tools (Volta and newer)
+\begin{itemize}
+	\item Nsight Compute
+	\item Nsight System
+\end{itemize}
+\vspace{0.5cm}
+Source: \href{https://docs.nvidia.com/cuda/profiler-users-guide/index.html#migrating-to-nsight-tools}{Programming Guide}
 \end{frame}
 
 

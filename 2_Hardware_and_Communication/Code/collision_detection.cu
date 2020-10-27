@@ -15,7 +15,7 @@ const int MAX_COLLISIONS = 100000;
 
 __device__ int GlobalThreadId()
 {
-    return blockIdx.x * gridDim.x + threadIdx.x;
+    return blockIdx.x * blockDim.x + threadIdx.x;
 }
 int iDivUp(int a, int b)
 {
