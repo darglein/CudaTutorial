@@ -65,6 +65,13 @@
 		\item A threadblock is executed in Warps of 32 threads
 		\item [$\rightarrow$] This matches the hierarchical architecture of GPUs
 	\end{itemize}
+	
+\begin{lstlisting}
+// Launch 10 blocks with 128 threads each
+// Each block consists of 4 Warps
+myKernel<<<10,128>>>(...);
+\end{lstlisting}
+	
 \end{frame}
 
 \frame
@@ -85,6 +92,7 @@
 	\end{itemize}
 	The \textbf{scheduler} distributes \textbf{threadblocks} to the SMs
 		\begin{itemize}
+		\item 
 			\item Once scheduled, a threadblock runs till completion (no swap-out)
 		\end{itemize}
 \end{frame}
@@ -98,7 +106,7 @@
 		\includegraphics[height=0.8\textheight]{ampere_sm}
 	\end{figure}
 	\centering
-	NVIDIA Ampere SM
+	\href{https://developer.nvidia.com/blog/nvidia-ampere-architecture-in-depth/}{NVIDIA Ampere SM}
 	\end{minipage}
 	\begin{minipage}{0.68\linewidth}
 \begin{itemize}
@@ -111,27 +119,40 @@
 \end{itemize}
 	\end{minipage}
 	
+
+	
 }
 
 
+\begin{frame}[fragile]
+%\frametitle{Texture Memory, Texture Cache}
+\begin{center}
+\Large Memory Types, Caches, Registers
+\end{center}
+\end{frame}
+
+\frame
+{
+	\frametitle{Memory Overview}
+	\begin{figure}
+		\includegraphics[height=0.9\textheight]{globalMemory}
+	\end{figure}
+
+	
+}
 
 
 
 \frame
 {
-	\frametitle{Memory Access and Caches}
-	\begin{minipage}{0.45\linewidth}
-	\begin{figure}
-		\includegraphics[height=0.8\textheight]{globalMemory}
-	\end{figure}
-	\end{minipage}
-	\begin{minipage}{0.5\linewidth}
+	\frametitle{Memory Overview}
+
 \begin{itemize}
 	\item All global memory read and writes are cached in the L2 cache.
 	\item<2-> Memory transactions through registers (load-store architecture)
-	\item<3-> Optional L1 data cache on the SM
+	\item<3-> 3 different optional caches on the SM (all read-only)
+	\item<4-> A user controlled shared memory (physically overlapping with L1 cache)
 \end{itemize}
-	\end{minipage}
 	
 }
 
@@ -156,7 +177,7 @@
 
 
 \frame{
-	\frametitle{Special Caches}
+	\frametitle{GPU Memory Caches}
 	The GPU memory can be accessed through various caches, optimized for different applications
 	\\ \vspace{0.5cm}
 	\begin{tabular}{l|l|l|l}
@@ -185,6 +206,21 @@ __global__ static
 void crload(const int* __restrict__ data, int* result)
 {
 	result[threadIdx.x] = data[threadIdx.x] + 42;
+}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{L1 Cache (2)}
+	The L1 Cache can also be used on any pointer by using the \texttt{\_\_ldg} function\\
+	\url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#ldg-function}
+
+	\textbf{Example Kernel:}
+	\begin{lstlisting}
+__global__ static
+void crload(int* data, int* result)
+{
+	result[threadIdx.x] = __ldg(data + threadIdx.x) + 42;
 }
 	\end{lstlisting}
 \end{frame}
@@ -244,7 +280,7 @@ void crload(const int* __restrict__ data, int* result)
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Texture Memory, Texture Cache}
+\frametitle{Texture Cache}
 	\begin{itemize}
 		\item Is specialized for \textbf{2D spatial reads}
 		\item Enables hardware interpolation, clamping 
@@ -259,6 +295,41 @@ void crload(const int* __restrict__ data, int* result)
 More information: \url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#texture-memory}
 \end{frame}
 
+
+\begin{frame}[fragile]
+\frametitle{Shared Memory}
+
+Shared Memory (SMEM) is...
+\begin{itemize}
+	\item located inside the SM
+	\item accessible from all threads within a block
+	\item very fast (100x) compared to global memory
+\end{itemize}
+SMEM is typically used for...
+\begin{itemize}
+	\item communication between threads within a block
+	\item caching global memory
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Shared Memory (Statically Allocated)}
+\begin{itemize}
+	\item Created by adding the \texttt{\_\_shared\_\_} keyword to a local variable
+	\item Usually used in combination with templating the block size
+\end{itemize}
+\begin{lstlisting}
+template <int BLOCK_SIZE_X>
+__global__ void RBPC(int* global_data, int n)
+{
+    __shared__ int shared_data[BLOCK_SIZE_X];
+    // ...
+    shared_data[local_offset_i] = global_data[global_offset_i];
+    __syncthreads();
+    // ...
+}
+\end{lstlisting}
+\end{frame}
 
 
 \begin{frame}[fragile]
@@ -484,21 +555,6 @@ __global__ void RBPC(Particle* particles1, Particle* particles2, int n, int m, i
 
 
 
-\begin{frame}[fragile]
-\frametitle{Shared Memory}
-
-Shared Memory (SMEM) is...
-\begin{itemize}
-	\item located inside the SM
-	\item accessible from all threads within a block
-	\item very fast (100x) compared to global memory
-\end{itemize}
-SMEM is typically used for...
-\begin{itemize}
-	\item communication between threads within a block
-	\item caching global memory
-\end{itemize}
-\end{frame}
 
 
 
@@ -517,12 +573,10 @@ Implementation (one block):
 \end{enumerate}
 \end{frame}
 
+
+
 \begin{frame}[fragile]
-\frametitle{Shared Memory (Statically Allocated)}
-\begin{itemize}
-	\item Created by adding the \texttt{\_\_shared\_\_} keyword to a local variable
-	\item Usually used in combination with templating the block size
-\end{itemize}
+\frametitle{Example: With SMEM}
 \begin{lstlisting}
 template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y, int K>
 __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
@@ -537,8 +591,6 @@ __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
 }
 \end{lstlisting}
 \end{frame}
-
-
 
 
 \frame{
@@ -628,23 +680,6 @@ T __shfl_xor_sync(unsigned mask, T var, int laneMask,
 \end{itemize}
 
 \end{frame}
-
-
-\frame{
-	\frametitle{Literature}
-	%
-	\begin{itemize}
-		\item \href{https://docs.nvidia.com/cuda/}{CUDA Toolkit Documentation}
-		\item \href{https://docs.nvidia.com/gameworks/content/developertools/desktop/analysis/report/cudaexperiments/kernellevel/memorystatisticsglobal.htm}{Global Loads}
-		\item \href{https://docs.nvidia.com/cuda/thrust/index.html}{Thrust}
-		\item \href{https://github.com/darglein/saiga}{Saiga}
-		\item \href{http://developer.download.nvidia.com/CUDA/training/register_spilling.pdf}{Local Memory - Talk}
-	\end{itemize}
-	
-}
-
-
-
 
 
 \end{document}

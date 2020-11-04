@@ -533,7 +533,7 @@ myKernel<<<2,128>>>();
 	\frametitle{Blocks and Warps}
 \begin{itemize}
 	\item The block size should be a multiple of the Warp size
-	\item All Threads in a warp \textbf{share the program counter}
+	\item All Threads in a warp \textbf{share the program counter} (Pascal and earlier)
 	\item [$\rightarrow$] Excessive branching in warps should be avoided.
 	\item [$\rightarrow$] High branching is usually called \textbf{warp divergence}.
 \end{itemize}

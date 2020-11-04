@@ -62,8 +62,8 @@ template <int BLOCK_SIZE_X, int BLOCK_SIZE_Y, int K>
 __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* particles2, int n, int m, int2* list,
                                                int* counter)
 {
-    __shared__ float4 shared_particles1[BLOCK_SIZE_X * K];
-    __shared__ float4 shared_particles2[BLOCK_SIZE_Y * K];
+    __shared__ Particle shared_particles1[BLOCK_SIZE_X * K];
+    __shared__ Particle shared_particles2[BLOCK_SIZE_Y * K];
 
     int block_i = blockIdx.x * blockDim.x * K;
     int block_j = blockIdx.y * blockDim.y * K;
@@ -73,10 +73,10 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
     // Load to smem
     if (threadIdx.y < K)
     {
-        static_assert(K <= BLOCK_SIZE_X && K <= BLOCK_SIZE_Y, "a");
+        static_assert(K <= BLOCK_SIZE_X && K <= BLOCK_SIZE_Y, "Not enough threads to load the blocks in one go.");
         int offset                = threadIdx.x + threadIdx.y * 16;
-        shared_particles1[offset] = ((float4*)particles1)[block_i + offset];
-        shared_particles2[offset] = ((float4*)particles2)[block_j + offset];
+        shared_particles1[offset] = particles1[block_i + offset];
+        shared_particles2[offset] = particles2[block_j + offset];
     }
 
 
@@ -97,8 +97,8 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
 
 
-            const Particle& p1 = ((Particle*)shared_particles1)[local_i];
-            const Particle& p2 = ((Particle*)shared_particles2)[local_j];
+            const Particle& p1 = shared_particles1[local_i];
+            const Particle& p2 = shared_particles2[local_j];
 
 
             if (Collide(p1, p2))
@@ -115,7 +115,7 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
 int main(int argc, char* argv[])
 {
-    int n = 5000;
+    int n = 6000;
     int m = 5000;
 
     const int K = 4;
@@ -129,12 +129,12 @@ int main(int argc, char* argv[])
     srand(1056735);
     for (Particle& p : particles1)
     {
-        p.position = vec3::Random() * 10;
+        p.position = vec3::Random() * 15;
         p.radius   = 1;
     }
     for (Particle& p : particles2)
     {
-        p.position = vec3::Random() * 10;
+        p.position = vec3::Random() * 15;
         p.radius   = 1;
     }
 
