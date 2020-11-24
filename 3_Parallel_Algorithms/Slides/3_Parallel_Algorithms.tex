@@ -78,6 +78,24 @@ float sum = thrust::reduce(data.begin(),data.end());
 \end{lstlisting}
 \end{frame}
 
+
+
+\begin{frame}[fragile]
+	\frametitle{Reduce}
+	Sequential implementation on the CPU:
+\begin{lstlisting}
+T reduce(vector<T> input, OP reduce_op, T initial_value = T())
+{
+	T output = initial_value;
+	for(auto v : input)
+	{
+		output = reduce_op(output, v);
+	}
+	return output;
+}
+\end{lstlisting}
+\end{frame}
+
 \frame
 {	
 	\frametitle{Reduce}
@@ -89,10 +107,6 @@ float sum = thrust::reduce(data.begin(),data.end());
 			\item add
 			\item min/max
 			\item multiply add (vector dot-product)
-		\end{itemize}
-		\item<3-> Example (AGPhys):
-		\begin{itemize}
-			\item Computation of the $3 \times 3$ covariance matrix with a parallel sum
 		\end{itemize}
 	\end{itemize}
 }
@@ -134,9 +148,9 @@ float sum = thrust::reduce(data.begin(),data.end());
 	\includegraphics[height=0.5\textheight]{warpreduce}
 \end{figure}
 \begin{lstlisting}
-val += __shfl_down(val, 4);
-val += __shfl_down(val, 2);
-val += __shfl_down(val, 1);
+val += __shfl_down_sync(0xFFFFFFFF, val, 4);
+val += __shfl_down_sync(0xFFFFFFFF, val, 2);
+val += __shfl_down_sync(0xFFFFFFFF, val, 1);
 \end{lstlisting}
 
 \end{frame}
@@ -154,16 +168,15 @@ val += __shfl_down(val, 1);
 \begin{lstlisting}
 T warpReduceSum(T val)
 {
-	for (unsigned int offset = 16; offset > 0; offset /= 2)
+	for (unsigned int offset = warpSize >> 1; offset > 0; offset >>= 1)
 	{
-		auto v = Saiga::CUDA::shfl_down(val, offset);
+		auto v = __shfl_down_sync(0xFFFFFFFF, val, offset);
 		val = val + v;
 	}
 	return val;
 }
 \end{lstlisting}
 
-\href{https://github.com/darglein/saiga/blob/master/samples/cuda/reduce/main.cu}{Full Source @ GitHub}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -383,6 +396,7 @@ if(threadIdx.x == 0)
 		\item custom reduce operators
 		\item indirect reductions (reduce by key)
 	\end{itemize}
+	\item General reduce:
 \end{itemize}
 \begin{lstlisting}
 thrust::device_vector<float> d_data;
@@ -391,6 +405,27 @@ float sum = thrust::reduce(d_data.begin(),d_data.end());
 \begin{itemize}
 	\item \href{https://thrust.github.io/doc/group__reductions.html}{Thrust Reduce API}
 	
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Thrust Reduce Variants}
+
+\begin{itemize}
+\begin{lstlisting}
+thrust::reduce_by_key(keys_first, keys_last, values_first, 
+		keys_output, values_output);		
+\end{lstlisting}
+	\item \texttt{reduce\_by\_key} is a generalization of reduce to key-value pairs.
+\begin{lstlisting}
+thrust::min_element(first, last);		
+\end{lstlisting}	
+	\item min\_element finds the smallest element in the range [first, last)
+\begin{lstlisting}
+thrust::max_element(first, last);		
+\end{lstlisting}	
+	\item max\_element finds the largest element in the range [first, last)
 \end{itemize}
 \end{frame}
 
@@ -426,11 +461,27 @@ cout << "Max radius = " << p.radius << endl;
 	\centering
 	\includegraphics[height=0.6\textheight]{o_scan}
 \end{figure}
-
-%https://thrust.github.io/doc/group__prefixsums.html
 \begin{lstlisting}
 // Exclusive prefix sum
 thrust::exclusive_scan(data.begin(),data.end(),output.begin());
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Scan}
+	Sequential implementation on the CPU:
+\begin{lstlisting}
+void exclusive_scan(vector<T> input, vector<T>& output)
+{
+	T sum = 0;
+	for(int i = 0; i < input.size(); ++i)
+	{
+		// Swap these two lines for an inclusive scan
+		output[i] = sum;
+		sum += input[i];
+	}
+}
 \end{lstlisting}
 \end{frame}
 
@@ -590,10 +641,25 @@ if(warpId > 0)
 
 %https://thrust.github.io/doc/group__prefixsums.html
 \begin{lstlisting}
-// output[map[i]] = data[i]
 thrust::scatter(data.begin(),data.end(),map.begin(),output.begin());
 \end{lstlisting}
 \end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Scatter}
+	Sequential implementation on the CPU:
+\begin{lstlisting}
+void scatter(vector<T> data, vector<T> map, vector<T>& output)
+{
+	for(int i = 0; i < input.size(); ++i)
+	{
+		output[map[i]] = input[i];
+	}
+}
+\end{lstlisting}
+\end{frame}
+
 
 
 \begin{frame}[fragile]
@@ -626,6 +692,20 @@ thrust::gather(data.begin(),data.end(),map.begin(),output.begin());
 \end{frame}
 
 \begin{frame}[fragile]
+	\frametitle{Gather}
+	Sequential implementation on the CPU:
+\begin{lstlisting}
+void gather(vector<T> data, vector<T> map, vector<T>& output)
+{
+	for(int i = 0; i < input.size(); ++i)
+	{
+		output[i] = input[map[i]];
+	}
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
 \frametitle{Gather}
 \begin{itemize}
 	\item The output element is the input indexed through a map
@@ -647,10 +727,27 @@ output[i] = input[map[i]];
 	\centering
 	\includegraphics[height=0.6\textheight]{o_compact}
 \end{figure}
-
 \begin{lstlisting}
 // Copy if the predicate is true
 thrust::copy_if(data.begin(),data.end(),Predicate(),output.begin());
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Compact}
+	Sequential implementation on the CPU:
+\begin{lstlisting}
+void copy_if(vector<T> data, OP predicate, vector<T>& output)
+{
+	for(int i = 0; i < input.size(); ++i)
+	{
+		if(predicate(data[i]))
+		{
+			output.push_back(data[i]);
+		}
+	}
+}
 \end{lstlisting}
 \end{frame}
 
@@ -667,36 +764,28 @@ Implementation:
 \begin{enumerate}
 	\item Scan over the predicate
 	\item Scatter elements to scanned offsets
+\begin{lstlisting}
+thrust::exclusive_scan(pred.begin(),pred.end(),map.begin());
+thrust::scatter(data.begin(),data.end(),map.begin(),out.begin());
+\end{lstlisting}
+\item [$\rightarrow$] Can be implemented in a single pass
 \end{enumerate}
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Compact}
-Implementation with scan + scatter
-\begin{lstlisting}
-thrust::exclusive_scan(pred.begin(),pred.end(),map.begin());
-thrust::scatter(data.begin(),data.end(),map.begin(),output.begin());
-\end{lstlisting}
-\onslide<2->
-\begin{itemize}
-	\item \textbf{Can be implemented in a single pass}
-	\begin{itemize}
-		\item Single pass scan followed by the copy operation
-		\item No tmp memory for the map is required
-	\end{itemize}
-	\item<3-> In AGPhys:
-	\begin{itemize}
-		\item Memory is allocated for all possible rigid body collisions
-		\item If a particle detects a collision, the contact point is added to the RB-collision
-		\item Collisions without a contact point are removed (compacted)
-	\end{itemize}
-\end{itemize}
-\onslide<4->
-\begin{lstlisting}
-thrust::copy_if(data.begin(),data.end(),Predicate(),output.begin());
-\end{lstlisting}
-\end{frame}
+\frametitle{Thrust Compact Variants}
 
+\begin{itemize}
+\begin{lstlisting}
+thrust::copy_if(first, last, result, pred);		
+\end{lstlisting}
+	\item Copy all elements in the range [first, last) to result for which the predicate evaluates to true
+\begin{lstlisting}
+thrust::copy_if(first, last, stencil, result, pred);		
+\end{lstlisting}
+\item Same as above except that the predicate is evaluated on the stencil
+\end{itemize}
+\end{frame}
 
 
 \begin{frame}[fragile]
@@ -1049,6 +1138,30 @@ thrust::sort(data.begin(),data.end());
 	\end{itemize}
 \end{frame}
 
+ 	
+\begin{frame}[fragile]
+\frametitle{Thrust Sort Variants}
+
+\begin{itemize}
+\begin{lstlisting}
+thrust::is_sorted(first, last);		
+\end{lstlisting}
+	\item is\_sorted returns true if the range [first, last) is sorted in ascending order, and false otherwise.
+\begin{lstlisting}
+thrust::sort(first, last, [comp]);		
+\end{lstlisting}
+\item Sorts the elements in [first, last) into ascending order
+\begin{lstlisting}
+thrust::stable_sort(first, last, [comp]);		
+\end{lstlisting}
+\item Same as sort but relative order stays unchanged
+\begin{lstlisting}
+thrust::sort_by_key(keys_first, keys_last, values_first, [comp]);
+\end{lstlisting}
+\item Sorts the keys and(!) values. Only the values are use for comparison.
+\end{itemize}
+\url{https://thrust.github.io/doc/group__sorting.html}
+\end{frame}
 
 \frame{
 	\frametitle{Literature}

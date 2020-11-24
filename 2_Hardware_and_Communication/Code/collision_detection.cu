@@ -11,21 +11,21 @@
 
 #include <thrust/device_vector.h>
 
-const int MAX_COLLISIONS = 100000;
+constexpr int MAX_COLLISIONS = 100000;
 
 __device__ int GlobalThreadId()
 {
     return blockIdx.x * blockDim.x + threadIdx.x;
 }
+
 int iDivUp(int a, int b)
 {
     return (a + b - (1)) / b;
 }
 
-using vec3 = Eigen::Vector3f;
 struct Particle
 {
-    vec3 position;
+    Eigen::Vector3f position;
     float radius;
 };
 
@@ -34,6 +34,8 @@ __host__ __device__ bool Collide(const Particle& p1, const Particle& p2)
     float r2 = p1.radius + p2.radius;
     return (p1.position - p2.position).squaredNorm() < r2 * r2;
 }
+
+// =======================================================================================
 
 __global__ void RedBlueParticleCollision(Particle* particles1, Particle* particles2, int n, int m, int2* list,
                                          int* counter)
@@ -115,7 +117,7 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
 int main(int argc, char* argv[])
 {
-    int n = 6000;
+    int n = 4000;
     int m = 5000;
 
     const int K = 4;
@@ -129,13 +131,13 @@ int main(int argc, char* argv[])
     srand(1056735);
     for (Particle& p : particles1)
     {
-        p.position = vec3::Random() * 15;
-        p.radius   = 1;
+        p.position.setRandom();
+        p.radius = 0.07;
     }
     for (Particle& p : particles2)
     {
-        p.position = vec3::Random() * 15;
-        p.radius   = 1;
+        p.position.setRandom();
+        p.radius = 0.07;
     }
 
     thrust::device_vector<Particle> d_particles1(particles1);
@@ -146,22 +148,27 @@ int main(int argc, char* argv[])
     d_particles2.resize(m + 16 * K);
 
     thrust::device_vector<int2> d_collision_list(MAX_COLLISIONS);
-    thrust::device_vector<int> d_collision_count(1, 0);
-    d_collision_count[0] = 0;
+    thrust::device_vector<int> d_collision_count(1);
 
 
-    float time_gpu1, time_gpu2;
+    // ============= GPU Collision Detection =============
+
+    float time_gpu1;
     {
-        int blocks_x = iDivUp(n, block_size_x);
-        int blocks_y = iDivUp(m, block_size_y);
+        d_collision_count[0] = 0;
+        int blocks_x         = iDivUp(n, block_size_x);
+        int blocks_y         = iDivUp(m, block_size_y);
         CudaScopedTimer timer(time_gpu1);
         RedBlueParticleCollision<<<dim3(blocks_x, blocks_y, 1), dim3(block_size_x, block_size_y, 1)>>>(
             d_particles1.data().get(), d_particles2.data().get(), n, m, d_collision_list.data().get(),
             d_collision_count.data().get());
     }
-
     int num_collisions = d_collision_count[0];
     std::cout << "Found " << num_collisions << " collisions on the GPU in " << time_gpu1 << " ms" << std::endl;
+
+    // ============= GPU Collision Detection with Shared Memory =============
+
+    float time_gpu2;
     d_collision_count[0] = 0;
     {
         int blocks_x = iDivUp(n, block_size_x * K);
@@ -173,13 +180,11 @@ int main(int argc, char* argv[])
                 d_particles1.data().get(), d_particles2.data().get(), n, m, d_collision_list.data().get(),
                 d_collision_count.data().get());
     }
-    cudaDeviceSynchronize();
-
     num_collisions = d_collision_count[0];
-
     std::cout << "Found " << num_collisions << " collisions on the GPU in " << time_gpu2 << " ms" << std::endl;
 
-    //    return 0;
+    // ============= CPU Collision Detection for reference =============
+
     std::atomic_int num_collisions_cpu;
     num_collisions_cpu = 0;
     float time_cpu;

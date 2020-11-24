@@ -7,6 +7,7 @@
 #include "Eigen/Core"
 #include "reduce.h"
 
+#include <iomanip>
 #include <iostream>
 
 #include <thrust/device_vector.h>
@@ -19,10 +20,8 @@ int iDivUp(int a, int b)
 __global__ static void WarpReduce(int* data, int N, int* output)
 {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= N) return;
-
-    int v = data[tid];
-    v     = warpReduceSum(v);
+    int v   = tid >= N ? 0 : data[tid];
+    v       = warpReduce(v, thrust::plus<int>());
 
     if (tid == 0) output[0] = v;
 }
@@ -33,10 +32,8 @@ __global__ static void BlockReduce(int* data, int N, int* output)
     __shared__ int blockSum;
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= N) return;
-
-    int v = data[tid];
-    v     = blockReduceSum(v, blockSum);
+    int v   = tid >= N ? 0 : data[tid];
+    v       = blockReduceSumAtomic(v, blockSum);
     if (threadIdx.x == 0) output[0] = v;
 }
 
@@ -45,10 +42,8 @@ __global__ static void Reduce(int* data, int N, int* output)
     __shared__ int blockSum;
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= N) return;
-
-    int v = data[tid];
-    v     = blockReduceSum(v, blockSum);
+    int v   = tid >= N ? 0 : data[tid];
+    v       = blockReduceSumAtomic(v, blockSum);
     if (threadIdx.x == 0)
     {
         atomicAdd(output, v);
@@ -77,7 +72,8 @@ int main(int argc, char* argv[])
         d_output[0] = 0;
         WarpReduce<<<1, 32>>>(part.data().get(), n, d_output.data().get());
         int sum = d_output[0];
-        std::cout << "Our Warp Reduce:   " << sum << " Reference: " << reference << std::endl;
+        std::cout << "Our Warp Reduce:   " << std::setw(8) << sum << "   thrust::reduce: " << std::setw(8) << reference
+                  << std::endl;
     }
 
     {
@@ -89,7 +85,8 @@ int main(int argc, char* argv[])
         d_output[0] = 0;
         BlockReduce<<<1, 256>>>(part.data().get(), n, d_output.data().get());
         int sum = d_output[0];
-        std::cout << "Our Block Reduce:  " << sum << " Reference: " << reference << std::endl;
+        std::cout << "Our Block Reduce:  " << std::setw(8) << sum << "   thrust::reduce: " << std::setw(8) << reference
+                  << std::endl;
     }
 
     {
@@ -100,7 +97,8 @@ int main(int argc, char* argv[])
         d_output[0] = 0;
         Reduce<<<iDivUp(N, 256), 256>>>(part.data().get(), N, d_output.data().get());
         int sum = d_output[0];
-        std::cout << "Our Global Reduce: " << sum << " Reference: " << reference << std::endl;
+        std::cout << "Our Global Reduce: " << std::setw(8) << sum << "   thrust::reduce: " << std::setw(8) << reference
+                  << std::endl;
     }
 
     return 0;

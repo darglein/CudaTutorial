@@ -92,7 +92,6 @@ myKernel<<<10,128>>>(...);
 	\end{itemize}
 	The \textbf{scheduler} distributes \textbf{threadblocks} to the SMs
 		\begin{itemize}
-		\item 
 			\item Once scheduled, a threadblock runs till completion (no swap-out)
 		\end{itemize}
 \end{frame}
@@ -505,6 +504,15 @@ T atomicCAS(T* address, T compare, T val);
 \end{itemize}
 \end{frame}
 
+
+\begin{frame}[fragile]
+%\frametitle{Texture Memory, Texture Cache}
+\begin{center}
+\Large Example
+\end{center}
+\end{frame}
+
+
 \frame
 {
 	\frametitle{Example: Red-Blue Collision Detection}
@@ -512,6 +520,8 @@ T atomicCAS(T* address, T compare, T val);
 		\includegraphics[width=0.7\textwidth]{red_blue_particles}
 	\end{figure}
 }
+
+
 
 
 \begin{frame}[fragile]
@@ -610,6 +620,13 @@ __global__ void RBPC(Particle* ps1, Particle* ps2, int n, int m)
 Full Code: \url{https://github.com/darglein/CudaTutorial/blob/master/2_Hardware_and_Communication/Code/collision_detection.cu}
 }
 
+
+\begin{frame}[fragile]
+%\frametitle{Texture Memory, Texture Cache}
+\begin{center}
+\Large Shuffle
+\end{center}
+\end{frame}
 
 
 \begin{frame}[fragile]

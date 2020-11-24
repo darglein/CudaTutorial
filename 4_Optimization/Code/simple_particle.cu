@@ -20,12 +20,29 @@ struct Particle
     float radius;
     vec3 velocity;
     float invMass;
+
+    Particle() = default;
+    __host__ __device__ Particle(const Particle& other) { *this = other; }
+    __host__ __device__ Particle& operator=(const Particle& other)
+    {
+        ((float4*)this)[0] = ((float4*)&other)[0];
+        ((float4*)this)[1] = ((float4*)&other)[1];
+        return *this;
+    }
 };
 
 struct EIGEN_ALIGN16 PositionRadius
 {
     vec3 position;
     float radius;
+
+    PositionRadius() = default;
+    __host__ __device__ PositionRadius(const PositionRadius& other) { *this = other; }
+    __host__ __device__ PositionRadius& operator=(const PositionRadius& other)
+    {
+        ((float4*)this)[0] = ((float4*)&other)[0];
+        return *this;
+    }
 };
 
 
@@ -33,6 +50,14 @@ struct EIGEN_ALIGN16 VelocityMass
 {
     vec3 velocity;
     float invMass;
+
+    VelocityMass() = default;
+    __host__ __device__ VelocityMass(const VelocityMass& other) { *this = other; }
+    __host__ __device__ VelocityMass& operator=(const VelocityMass& other)
+    {
+        ((float4*)this)[0] = ((float4*)&other)[0];
+        return *this;
+    }
 };
 
 // ===== Helper functions ====
@@ -50,9 +75,10 @@ __global__ static void updateParticles(Particle* particles, int N, float dt)
 {
     int tid = GlobalThreadId();
     if (tid >= N) return;
-    Particle& p = particles[tid];
+    Particle p = particles[tid];
     p.position += p.velocity * dt;
     p.velocity += vec3(0, -9.81, 0) * dt;
+    particles[tid] = p;
 }
 
 __global__ static void updateParticles2(PositionRadius* prs, VelocityMass* vms, int N, float dt)
@@ -61,18 +87,21 @@ __global__ static void updateParticles2(PositionRadius* prs, VelocityMass* vms, 
     if (tid >= N) return;
     PositionRadius pr;
     VelocityMass vm;
-    reinterpret_cast<int4*>(&pr)[0] = reinterpret_cast<int4*>(prs)[tid];
-    reinterpret_cast<int4*>(&vm)[0] = reinterpret_cast<int4*>(vms)[tid];
+
+    pr = prs[tid];
+    vm = vms[tid];
+    //        reinterpret_cast<int4*>(&pr)[0] = reinterpret_cast<int4*>(prs)[tid];
+    //        reinterpret_cast<int4*>(&vm)[0] = reinterpret_cast<int4*>(vms)[tid];
 
     //    Particle& p = particles[tid];
     pr.position += vm.velocity * dt;
     vm.velocity += vec3(0, -9.81, 0) * dt;
 
 
-    reinterpret_cast<int4*>(prs)[tid] = reinterpret_cast<int4*>(&pr)[0];
-    reinterpret_cast<int4*>(vms)[tid] = reinterpret_cast<int4*>(&vm)[0];
-    //    vms[tid] = vm;
-    //    prs[tid] = pr;
+    //    reinterpret_cast<int4*>(prs)[tid] = reinterpret_cast<int4*>(&pr)[0];
+    //    reinterpret_cast<int4*>(vms)[tid] = reinterpret_cast<int4*>(&vm)[0];
+    vms[tid] = vm;
+    prs[tid] = pr;
 }
 
 int main(int argc, char* argv[])
