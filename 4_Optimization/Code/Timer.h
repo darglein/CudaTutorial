@@ -114,3 +114,22 @@ inline float measureObject(int its, F f)
     std::sort(timings.begin(), timings.end());
     return timings[timings.size() / 2];
 }
+
+template <typename TimerType = CudaScopedTimer, typename F1, typename F2>
+inline float measureObject2(int its, F1 pre_f, F2 f)
+{
+    std::vector<float> timings(its);
+    for (int i = 0; i < its; ++i)
+    {
+        pre_f();
+        float time;
+        {
+            TimerType tim(time);
+            f();
+        }
+        timings[i] = time;
+    };
+
+    std::sort(timings.begin(), timings.end());
+    return timings[timings.size() / 2];
+}
