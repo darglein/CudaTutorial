@@ -1,5 +1,5 @@
 % or aspectratio=43
-\documentclass[aspectratio=169,handout]{beamer}
+\documentclass[aspectratio=169]{beamer}
 
 % remove this line for an english presentation
 %\usepackage{ngerman}
@@ -362,6 +362,30 @@ if (warpId==0) val = warpReduceSum(val);
 
 \end{frame}
 
+
+\begin{frame}[fragile]
+\frametitle{Non-Atomic Global Reduce}
+\label{si:spinlock}
+\begin{itemize}
+	\item Reduction with atomic spin lock
+\end{itemize}
+\begin{lstlisting}
+// After the block reduce...
+if(threadIdx.x == 0)
+{
+	// Spin until lock==0 and set lock=1 (lock is an integer in gmem)
+	while(atomicCAS(&lock,0,1) != 0) {}
+	
+	// Load from global memory, reduce, and write back
+	T gv = output[0];
+	v = reduce(v,gv); // reduce() can be a custom operator
+	output[0] = v;
+	
+	// Release lock
+	lock = 0;
+}
+\end{lstlisting}
+\end{frame}
 
 \begin{frame}[fragile]
 \frametitle{Non-Atomic Global Reduce}
@@ -807,14 +831,14 @@ thrust::sort(data.begin(),data.end());
 	\frametitle{Sort}
 	\begin{itemize}
 		\item Sorting is very complex on the GPU
-		\item<2-> Lots of communication between threads is required
-		\item<2-> Communication in both directions (in contrast to Scan)
+		\item Lots of communication between threads is required
+		\item Communication in both directions (in contrast to Scan)
 	\end{itemize}
-\onslide<3->
+\onslide<2->
 2 different algorithms are present in this lecture:
 \begin{itemize}
-	\item<4-> Bitonic Sort for \textit{local} datasets (in warp, in block)
-	\item<5-> Radix Sort for \textit{global} datasets
+	\item<2-> Bitonic Sort for \textit{local} datasets (in warp, in block)
+	\item<2-> Radix Sort for \textit{global} datasets
 \end{itemize}
 }
 
@@ -848,11 +872,11 @@ thrust::sort(data.begin(),data.end());
 	\frametitle{Bitonic Sort}
 \begin{itemize}
 	\item The input consist of N bitonic sequences of size 2
-	\item<2-> In each stage, neighboring sequences of the previous stage are merged
-	\item<3-> After $\log_2(N)$ stages, a single increasing bitonic sequence remains
+	\item In each stage, neighboring sequences of the previous stage are merged
+	\item After $\log_2(N)$ stages, a single increasing bitonic sequence remains
 
-	\item<4->[$\rightarrow$] Also called: \textit{Bitonic Merge Sort}
-	\item<5->[$\rightarrow$] Merging implemented with swap operations
+	\item[$\rightarrow$] Also called: \textit{Bitonic Merge Sort}
+	\item[$\rightarrow$] Merging implemented with swap operations
 \end{itemize}
 }
 
@@ -983,14 +1007,14 @@ T bitonicWarpSort(T v, unsigned int l)
 {
 	\frametitle{Radix Sort}
 	\begin{itemize}
-		\item<2-> Sort elements into $k$ buckets
-		\item<3-> Count the number of elements in each bucket and reorder the array
-		\item<4-> Iterate $log_k(M)$ times, where $M$ is the number of possible values
-		\item<5-> Also know as Counting Sort, Bucket Sort
-		\item<6-> In the following example:
+		\item Sort elements into $k$ buckets
+		\item Count the number of elements in each bucket and reorder the array
+		\item Iterate $log_k(M)$ times, where $M$ is the number of possible values
+		\item Also know as Counting Sort, Bucket Sort
+		\item<2-> In the following example:
 \begin{itemize}
-	\item<6-> 2 buckets (one for each bit)
-	\item<6-> 8 possible values $\rightarrow$ 3 stages
+	\item<2-> 2 buckets (one for each bit)
+	\item<2-> 8 possible values $\rightarrow$ 3 stages
 \end{itemize}
 	\end{itemize}
 }
@@ -1122,16 +1146,16 @@ static void radixSortHelper(...)
 	\frametitle{Radix Sort - Conclusion}
 	\begin{itemize}
 		\item Radix sorts works well on parallel architectures
-		\item<2-> We can implement a global radix sort with compact operations!
-		\item<3-> Real radix sort implementations are more optimized:
+		\item We can implement a global radix sort with compact operations!
+		\item Real radix sort implementations are more optimized:
 		\begin{itemize}
 			\item sorting by multiple bits in each step
 			\item combining the 0- and 1-compaction
 			\item[$\rightarrow$] Lots of papers have been written about GPU sorts. 
 			\href{https://ieeexplore.ieee.org/abstract/document/5161005}{Link}
 		\end{itemize}
-	\item<4-> Don't implement a global sort by yourself!
-	\item<5->[$\rightarrow$] Use thrust in your program:
+	\item Don't implement a global sort by yourself!
+	\item[$\rightarrow$] Use thrust in your program:
 \begin{lstlisting}
 thrust::sort(data.begin(),data.end());
 \end{lstlisting}
@@ -1168,7 +1192,7 @@ thrust::sort_by_key(keys_first, keys_last, values_first, [comp]);
 	%
 	\begin{itemize}
 		\item \href{https://docs.nvidia.com/cuda/}{Cuda Toolkit Documentation}
-		\item \href{https://docs.nvidia.com/cuda/thrust/index.html}{Thrust}
+		\item \href{https://thrust.github.io/doc/group__algorithms.html}{Thrust Algorithms}
 		\item \href{https://github.com/darglein/saiga}{Saiga}
 		\item \href{https://research.nvidia.com/sites/default/files/pubs/2016-03_Single-pass-Parallel-Prefix/nvr-2016-002.pdf}{Scan (Paper)}
 		\item \href{http://on-demand.gputechconf.com/gtc/2013/presentations/S3174-Kepler-Shuffle-Tips-Tricks.pdf}{Shuffle Tips and Tricks}

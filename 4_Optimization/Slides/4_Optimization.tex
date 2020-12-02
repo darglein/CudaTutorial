@@ -10,7 +10,7 @@
 \usepackage[imagetitlepage]{lgdv/lgdv_beamer}
 
 \usepackage{mdframed}
-
+\usepackage{siunitx}
 \usepackage{xcolor}
 \graphicspath{{images/}}
 
@@ -19,8 +19,8 @@
 	\parbox[b]{8em}{\hfill{\color{cyan}\bfseries\sffamily #1}~$\cdots\cdots$~}\makebox[0pt][c]{$\bullet$}\vrule\quad \parbox[c]{10.5cm}{\vspace{7pt}\color{red!80!black!80}\raggedright\sffamily #2\\[7pt]}\\[-3pt]}
 
 
-\subtitle{AGPhys WS 18/19}
-\title{Debugging and Profiling CUDA Kernels}
+\subtitle{AGPhys WS 20/21                                                                                                 }
+\title{Profiling and Optimizing CUDA Kernels}
 \author[Darius Rückert]{Darius Rückert}
 \date{\today}
 
@@ -28,6 +28,7 @@
 {
 	\begin{figure}[!h]
 					\includegraphics[height=.3\textheight]{sass2}
+						\includegraphics[height=0.3\textheight]{coa2}
 	\end{figure}
 }
 
@@ -36,6 +37,31 @@
 \frame
 {
 	\titlepage
+}
+
+\frame
+{
+	\frametitle{Overview}
+		\begin{enumerate}
+		\item CUDA Compilation
+		\item PTX and Shader Assembly
+		\item Profiling with Nsight Compute
+		\item Various Optimization Techniques
+		\begin{itemize}
+		\item Grid Stride Loops
+		\item Global Memory Access Patterns
+		\item Occupancy
+		\item Pinned Memory
+		\item Streams + Parallel Kernels
+		\end{itemize}
+		\end{enumerate}
+}
+
+\frame
+{
+\begin{center}
+\Large CUDA Compilation
+\end{center}
 }
 
 
@@ -109,6 +135,40 @@ nvcc -arch=sm_61 -g main.cu -o main
 \frametitle{nvcc compiler flags}
 
 \begin{itemize}
+\item[] \textbf{-Xcompiler=[flag]}
+\begin{itemize}
+\item[] Passes [flag] to the CUDA host compiler
+\end{itemize}
+
+\item[] \textbf{--expt-relaxed-constexpr}
+\begin{itemize}
+\item[] Allows constexpr functions without \texttt{device} keyword to be used in device code
+\end{itemize}
+
+\item[] \textbf{--relocatable-device-code=true}
+\begin{itemize}
+\item[] Required for dynamic parallelism
+\end{itemize}
+
+\item[] \textbf{-restric}
+\begin{itemize}
+\item[] Assert that all kernel pointer parameters are restrict pointers.
+\end{itemize}
+
+\item[] \textbf{--profile}
+\begin{itemize}
+\item[] Instrument generated code/executable for use by gprof.
+\end{itemize}
+
+
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{nvcc compiler flags}
+
+\begin{itemize}
 	\item[] \textbf{-arch}
 	\begin{itemize}
 		\item[] Specify the name of the class of NVIDIA virtual GPU architecture for which the CUDA input files must be compiled. 
@@ -138,39 +198,6 @@ nvcc -arch=sm_61 -g main.cu -o main
 \end{itemize}
 \end{frame}
 
-
-\begin{frame}[fragile]
-\frametitle{nvcc compiler flags}
-
-\begin{itemize}
-\item[] \textbf{-Xcompiler=[flag]}
-\begin{itemize}
-\item[] Passes [flag] to the CUDA host compiler
-\end{itemize}
-
-\item[] \textbf{--expt-relaxed-constexpr}
-\begin{itemize}
-\item[] Allows constexpr functions without \texttt{device} keyword to be used in device code
-\end{itemize}
-
-\item[] \textbf{--relocatable-device-code=true}
-\begin{itemize}
-\item[] Required for dynamic parallelism
-\end{itemize}
-
-\item[] \textbf{-restric}
-\begin{itemize}
-\item[] Assert that all kernel pointer parameters are restrict pointers.
-\end{itemize}
-
-\item[] \textbf{--profile}
-\begin{itemize}
-\item[] Instrument generated code/executable for use by gprof.
-\end{itemize}
-
-
-\end{itemize}
-\end{frame}
 
 
 \begin{frame}[fragile]
@@ -236,6 +263,12 @@ target_compile_options(hello_world PRIVATE
 \end{frame}
 
 
+\frame
+{
+\begin{center}
+\Large PTX and SASS
+\end{center}
+}
 
 \begin{frame}[fragile]
 \frametitle{Parallel Thread Execution (PTX) ISA}
@@ -286,191 +319,43 @@ ST.E [R6], R0;
 \begin{frame}[fragile]
 	\frametitle{cuobjdump}
 	\textbf{cuobjdump} extracts information from CUDA binary files. The extracted information include:
-	\begin{itemize}
-		\item CUDA assembly code for each kernel (SASS)
-		\item Embedded PTX text
-		\item CUDA ELF section headers
-		\item String tables
-		\item Relocators
-	\end{itemize}	
-
 \begin{lstlisting}[language=bash]
-# Examples:
-cuobjdump hello_world -ptx > ptx.txt
-cuobjdump hello_world -sass > sass.txt
+cuobjdump [options] <file>
 \end{lstlisting}
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Optimizing Global Memory Throughput}
-
-\begin{mdframed}[frametitle={Cuda Programming Guide:}]
-Optimizing the memory access pattern is especially important for global memory as the bandwidth is low compared to available on-chip bandwidths and arithmetic instruction throughput, so non-optimal global memory accesses generally have a high impact on performance. 
-\end{mdframed}
-
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Memory Access Optimization Guideline}
-
-
-\begin{enumerate}
-	\item Reduce the number of global memory accesses
-	\begin{itemize}
-	\item Cache in shared memory
-	\item Recompute temporary variables
-	\item 4/8/16-Byte Loads/Stores
-	\end{itemize}
-	\item Align warp accesses to transaction size
-\begin{itemize}
-	\item Global memory is accessed via 32- 64- or 128 byte \textbf{transactions}
-	\end{itemize}
-	\item Maximize coalescing in a warp
-\begin{itemize}
-	\item Reduce number of required \textbf{transactions} per warp
-	\end{itemize}	
-\end{enumerate}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{4/8/16-Byte Load Store Instructions}
-\begin{itemize}
-\item SASS provides load store instructions for 4, 8, and 16 byte global memory access:
-\begin{itemize}
-	\item \texttt{LD.E \ \ \ \ <dst reg>, <source address>}
-	\item \texttt{LD.E.64 \ <dst reg>, <source address>}
-	\item \texttt{LD.E.128 <dst reg>, <source address>}
-\end{itemize}
-\item The compiler generates them if the data is aligned to 4/8/16 bytes
-\begin{lstlisting}
-// ... int2* global_array 
-int2 my_vector = global_array[tid]; // 8 byte load
-\end{lstlisting}
-\item Otherwise we can force it by \texttt{reinterpret\_cast} to a build-in vector type
-\end{itemize}
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Aligned Memory Accesses}
-\begin{lstlisting}
-int i = globalArray[threadIdx.x];
-\end{lstlisting}
-		\begin{figure}
-		\includegraphics[height=0.7\textheight]{coa1}
-	\end{figure}
-\begin{itemize}
-	\item[$\rightarrow$] 4 transactions per warp (uncached)
-	\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]
-	\frametitle{Misaligned Memory Accesses}
-\begin{lstlisting}
-int i = globalArray[threadIdx.x + 1];
-\end{lstlisting}
-		\begin{figure}
-	\includegraphics[height=0.7\textheight]{coa2}
-\end{figure}
-\begin{itemize}
-	\item[$\rightarrow$] 5 transactions per warp (uncached), 25\% more than optimal
-	\end{itemize}
-\end{frame}
-
-
-\begin{frame}[fragile]
-	\frametitle{Strided Access 1}
-	\begin{itemize}
-	\item The read/written element is smaller than the gap between those elements
-	\item Naturally occurs by accessing members of a struct
-\end{itemize}
 Example:
-\begin{lstlisting}       
-struct EIGEN_ALIGN32 Particle {
-	vec4 position;
-	vec4 velocity;
-};  
-// ...
-vec4 p = particles[tid].position;
-vec4 v = particles[tid].velocity;
-// ...
-\end{lstlisting} 
-\end{frame}
-
-
-\begin{frame}[fragile]
-	\frametitle{Strided Access 2}
-	\begin{itemize}
-	\item 	\textbf{Non-coalescable memory access pattern}
-\end{itemize}
-	\begin{figure}
-		\centering
-		\includegraphics[height=0.5\textheight]{accessParticle1}
-	\end{figure}
-\begin{lstlisting}[language=bash]               
-LD.E.128 R4, [R12];   
-\end{lstlisting} 
-\end{frame}
-
-
-\begin{frame}[fragile]
-	\frametitle{Strided Access 3}
-	\begin{itemize}
-		\item 	\textbf{Non-coalescable memory access pattern}
-	\end{itemize}
-
-	\begin{figure}
-		\centering
-		\includegraphics[height=0.5\textheight]{accessParticle2}
-	\end{figure}
-\begin{lstlisting}[language=bash]               
-LD.E.128 R8, [R12+0x10];  
-\end{lstlisting} 
-\begin{itemize}
-	\item[$\rightarrow$] 2 times more transactions than optimal
-	\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Strided Access Solution}
-Instead of storing and array of particles, we split it into
-\begin{itemize}
-	\item an array of positions
-	\item an array of velocities
-\end{itemize}
-This concept is often called \textbf{structure of arrays} and is widely used in high performance computing and GPU libraries.
-\begin{lstlisting}
-vec4* positions = ...;
-vec4* velocities = ...;
-// ...
-vec4 p = positions[tid];
-vec4 v = velocities[tid];
-// ...
+\begin{lstlisting}[language=bash]
+# Extract code
+cuobjdump -ptx simple_particle > ptx.txt
+cuobjdump -sass simple_particle > sass.txt
+# Show all cubins and extract one
+cuobjdump -lelf simple_particle
+cuobjdump -xelf simple_particle.sm_75.cubin simple_particle
 \end{lstlisting}
+\url{https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#cuobjdump}
 \end{frame}
-
-
 
 \begin{frame}[fragile]
-\frametitle{Particle Integration Performance}
-	\begin{tabular}{l|l|l|l}
-	\textbf{Method} & \textbf{Time (ms)} & \textbf{Bandwidth (GB/s)} & \textbf{Speed Up} \\	
-	\hline
-	Initial & 0.458  & 139.509 & 1 \\
-	Vector + Inverse Layout & 0.273  &       233.918 & 1.68 \\
-	Vector + Shared LS & 0.274   &    233.209 & 1.68 \\
-	cudaMemcpy & 0.275   &    232.342 & 1.68  
-\end{tabular}
-\\
-\vspace{0.5cm}
-\begin{itemize}
-	\item[$\rightarrow$] Optimizing the global memory access improves performance by around 68\%
-	\item[$\rightarrow$] We have reached bandwidth limit (same BW as cudaMemcpy)
-	\item[$\rightarrow$] \href{https://github.com/darglein/saiga/blob/master/samples/cuda/globalMemory/main.cu}{Full source code @ GitHub}
-\end{itemize}
+	\frametitle{nvidisasm}
+nvdisasm extracts information from standalone cubin files and presents them in human readable format. 
+\begin{lstlisting}[language=bash]
+nvdisasm [options] <input cubin file>
+\end{lstlisting}
+Example:
+\begin{lstlisting}[language=bash]
+# Convert to text
+nvdisasm -c simple_particle.sm_75.cubin > asm.txt
+# Register usage
+nvdisasm -c -plr simple_particle.sm_75.cubin > asm.txt
+\end{lstlisting}
+\url{https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#nvdisasm}
 \end{frame}
+
+\frame
+{
+\begin{center}
+\Large Profiling
+\end{center}
+}
 
 
 \begin{frame}[fragile]
@@ -539,6 +424,394 @@ nvvp ./agphys
 
 \end{minipage}
 \end{frame}
+
+
+\frame
+{
+\begin{center}
+\Large Advanced Optimization Techniques
+\end{center}
+}
+
+
+\begin{frame}[fragile]
+\frametitle{Grid Stride Loops}
+
+\begin{itemize}
+\item Gride Stride Loops are a CUDA technique to make (linear) kernels more flexible
+\item Gride Stride Loops improve
+\begin{itemize}
+\item Performance
+\item Debugging
+\item Portability
+\end{itemize}
+Source: \url{https://developer.nvidia.com/blog/cuda-pro-tip-write-flexible-kernels-grid-stride-loops/}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Grid Stride Loops}
+Linear saxpy Kernel:
+\begin{lstlisting}
+__global__
+void saxpy(int n, float a, float *x, float *y)
+{
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if (i < n) 
+	{
+		y[i] = a * x[i] + y[i];
+	}
+}
+\end{lstlisting}
+\textbf{Note:} Every thread processes at most one element.
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Grid Stride Loops}
+saxpy Kernel with grid stride loop:
+\begin{lstlisting}
+__global__
+void saxpy_gsl(int n, float a, float *x, float *y)
+{
+	int i = blockIdx.x * blockDim.x + threadIdx.x; 
+	while(i < n)                     // Replace 'if' by 'while'
+	{
+		y[i] = a * x[i] + y[i];
+		i += blockDim.x * gridDim.x;   // Increment by the grid size
+	}
+}
+\end{lstlisting}
+\textbf{Note:} This kernel can now be launched with an arbitrary grid- and block-size
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\frametitle{Grid Stride Loops}
+Without GS-Loop:
+\begin{lstlisting}
+saxpy<<< iDivUp(n,128),128 >>>(n, a, x, y);
+\end{lstlisting}
+With GS-Loop:
+\begin{lstlisting}
+// Launch 1 Block
+saxpy_gsl<<< 1,128 >>>(n, a, x, y);
+// Launch 1 Warp
+saxpy_gsl<<< 1,32 >>>(n, a, x, y);
+// Launch 1 Thread
+saxpy_gsl<<< 1,1 >>>(n, a, x, y);
+\end{lstlisting}
+\begin{itemize}
+	\item[$\rightarrow$] The kernel can be launched in any configuration
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Grid Stride Loops}
+\textbf{Debugging}
+\begin{itemize}
+\item Launching the kernel with 1 block or thread makes debugging easier
+\item[$\rightarrow$] We can eliminate race conditions 
+\item[$\rightarrow$] printf() and asserts are more meaningful
+\end{itemize}
+
+\textbf{Optimization}
+\begin{itemize}
+\item The number of launched blocks can now be tuned
+\item For example, we can launch as many blocks as the GPU is able to run simultaneously 
+\item[$\rightarrow$] Less blocks
+\item[$\rightarrow$] Reduce scheduling cost
+\end{itemize}
+Grid Stride Loops are therefore used in many GPU libraries.
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Pytorch Example}
+\begin{itemize}
+\item Index Select Kernel (ATen/native/cuda/indexing.cu):
+\end{itemize}
+
+\begin{lstlisting}
+template <typename T, ...>
+__global__ void indexSelect(
+		cuda::detail::TensorInfo<T, IndexType> dst,
+		...) 
+{
+	// Grid Stride loop
+	for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
+	   linearIndex < totalSize;
+	   linearIndex += gridDim.x * blockDim.x) {
+	   // ...
+	}
+}
+\end{lstlisting}
+\end{frame}
+
+
+\frame
+{
+\begin{center}
+\Large Optimizing Global Memory Throughput
+\end{center}
+}
+
+
+\begin{frame}[fragile]
+\frametitle{Optimizing Global Memory Throughput}
+
+\begin{mdframed}[frametitle={Cuda Programming Guide:}]
+Optimizing the memory access pattern is especially important for global memory as the bandwidth is low compared to available on-chip bandwidths and arithmetic instruction throughput, so non-optimal global memory accesses generally have a high impact on performance. 
+\end{mdframed}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Memory Access Overview}
+\textbf{Optimization Checklist:}
+\begin{enumerate}
+	\item Align warp memory access to transaction size
+	\item Reduce the number of load/store instructions
+	\item Maximize coalescing in a warp
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Memory Checklist 1}
+\begin{mdframed}[]
+Align warp memory access to transaction size
+\end{mdframed}
+\vspace{0.3cm}
+\begin{itemize}
+\item The global memory is read and written using transactions
+\item The transaction size is default 32B 
+\item If the L1 cache is used the transactions are increased to 128B
+\item Transactions are issued on a per-warp basis
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Aligned Memory Accesses}
+\begin{lstlisting}
+int i = globalArray[threadIdx.x];
+\end{lstlisting}
+		\begin{figure}
+		\includegraphics[height=0.7\textheight]{coa1}
+	\end{figure}
+\begin{itemize}
+	\item[$\rightarrow$] 4 transactions per warp (uncached)
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Misaligned Memory Accesses}
+\begin{lstlisting}
+int i = globalArray[threadIdx.x + 1];
+\end{lstlisting}
+		\begin{figure}
+	\includegraphics[height=0.7\textheight]{coa2}
+\end{figure}
+\begin{itemize}
+	\item[$\rightarrow$] 5 transactions per warp (uncached), 25\% more than optimal
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Memory Checklist 2}
+\begin{mdframed}[]
+Reduce the number of load/store instructions
+\end{mdframed}
+\vspace{0.3cm}
+The obvious answer
+\begin{itemize}
+\item Reduce C++ instructions that read/write global memory
+\item Store values in registers/shared memory etc.
+\end{itemize}
+The less obvious answer
+\begin{itemize}
+\item Combine multiple load instructions into fewer, vectorized instructions
+\item[$\rightarrow$] We can load up to 16 byte in a single instruction!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Vectorized Load Store}
+\begin{itemize}
+\item SASS provides load store instructions for 4, 8, and 16 byte global memory access:
+\begin{itemize}
+	\item \texttt{LD.E \ \ \ \ <dst reg>, <source address>}
+	\item \texttt{LD.E.64 \ <dst reg>, <source address>}
+	\item \texttt{LD.E.128 <dst reg>, <source address>}
+\end{itemize}
+\item They are always generated on the build-in types (int4, float2, ...)
+\item Not always generated for custom structs with multiple members
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Vectorized Load Store (Bad)}
+\begin{lstlisting}       
+struct EIGEN_ALIGN16 Particle {
+	vec3 position;
+	float radius
+};  
+// ...
+Particle p = particles[tid];
+// ...
+\end{lstlisting} 
+Generated Code:
+\begin{lstlisting}   
+LD.E.64 R8,  [R4+0x4];                    
+LD.E    R11, [R4+0x14];                  
+LD.E    R7,  [R4+0xc];   
+\end{lstlisting} 
+\begin{itemize}
+	\item[$\rightarrow$] 3 Load instructions instead of 1 even though the particle is aligned :c
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Vectorized Load Store (Good)}
+	Force the compiler to generate a 16B load using a reinterpreting cast
+\begin{lstlisting}       
+
+// ...
+Particle p;
+reinterpret_cast<int4*>(&p)[0] = 
+				reinterpret_cast<int4*>(particles + tid)[0];
+// ...
+\end{lstlisting} 
+Generated Code:
+\begin{lstlisting}   
+LD.E.128 R8,  [R4+0x4];    
+\end{lstlisting} 
+\begin{itemize}
+	\item[$\rightarrow$] Only 1 load instruction. This is now optimal.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Memory Checklist 3}
+\begin{mdframed}[]
+Maximize coalescing in a warp
+\end{mdframed}
+\vspace{0.3cm}
+\begin{itemize}
+\item Global memory read/writes of a warp are coalesced (combined) into a few transactions
+\item We want to reduce the number of transactions
+\item[$\rightarrow$] Neighboring threads should access neighboring (or the same) elements
+\item[$\rightarrow$] Strided memory access reduces performance
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Strided Access 1}
+	\begin{itemize}
+	\item The read/written element is smaller than the gap between those elements
+	\item Naturally occurs by accessing members of a struct
+\end{itemize}
+Example:
+\begin{lstlisting}       
+struct EIGEN_ALIGN32 Particle {
+	float4 position;
+	float4 velocity;
+};  
+// ...
+float4 p = particles[tid].position;
+float4 v = particles[tid].velocity;
+// ...
+\end{lstlisting} 
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Strided Access 2}
+	\begin{itemize}
+	\item 	\textbf{Non-coalescable memory access pattern}
+\end{itemize}
+	\begin{figure}
+		\centering
+		\includegraphics[height=0.5\textheight]{accessParticle1}
+	\end{figure}
+\begin{lstlisting}             
+float4 p = particles[tid].position;
+\end{lstlisting} 
+\end{frame}
+
+
+\begin{frame}[fragile]
+	\frametitle{Strided Access 3}
+	\begin{itemize}
+		\item 	\textbf{Non-coalescable memory access pattern}
+	\end{itemize}
+
+	\begin{figure}
+		\centering
+		\includegraphics[height=0.5\textheight]{accessParticle2}
+	\end{figure}
+\begin{lstlisting}             
+float4 v = particles[tid].velocity;
+\end{lstlisting} 
+\begin{itemize}
+	\item[$\rightarrow$] 2 times more transactions than optimal
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Strided Access Solution}
+Instead of storing and array of particles, we split it into
+\begin{itemize}
+	\item an array of positions
+	\item an array of velocities
+\end{itemize}
+This concept is often called \textbf{structure of arrays} and is widely used in high performance computing and GPU libraries.
+\begin{lstlisting}
+vec4* positions = ...;
+vec4* velocities = ...;
+// ...
+vec4 p = positions[tid];
+vec4 v = velocities[tid];
+// ...
+\end{lstlisting}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Particle Integration Performance}
+	\begin{tabular}{l|l|l|l}
+	\textbf{Method} & \textbf{Time (ms)} & \textbf{Bandwidth (GB/s)} & \textbf{Speed Up} \\	
+	\hline
+	Initial & 0.458  & 139.509 & 1 \\
+	Vector + Inverse Layout & 0.273  &       233.918 & 1.68 \\
+	cudaMemcpy & 0.275   &    232.342 & 1.68  
+\end{tabular}
+\\
+\vspace{0.5cm}
+\begin{itemize}
+	\item[$\rightarrow$] Optimizing the global memory access improves performance by around 68\%
+	\item[$\rightarrow$] We have reached bandwidth limit (same BW as cudaMemcpy)
+	\item[$\rightarrow$] \href{https://github.com/darglein/saiga/blob/master/samples/cuda/globalMemory/main.cu}{Full source code @ GitHub}
+\end{itemize}
+\end{frame}
+
+
+\frame
+{
+\begin{center}
+\Large Occupancy and Latency
+\end{center}
+}
 
 
 \begin{frame}[fragile]
@@ -670,38 +943,328 @@ void collideParticlesLCK(...)
 \end{frame}
 
 
-\begin{frame}[fragile]
-\frametitle{Occupancy Example}
 
-\begin{minipage}{0.5\linewidth}
-	With launch bounds we achieve
+\frame
+{
+\begin{center}
+\Large Pinned Memory
+\end{center}
+}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Problem 1 - Paged Host Memory}
+By default, all memory allocations on the Host are paged. A page table translates virtual page addresses to physical page addresses.
+\begin{itemize}
+	\item Memory can only be allocated in page-sized blocks
+	\item Consecutive virtual pages can be fragmented in physical memory
+	\item Pages can be swapped out
+	\item Pageable memory cannot be used for DMA transfers
+	\item[$\rightarrow$] Paged memory has to be copied to pinned/locked memory
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Pinned Memory}
+
+		\begin{figure}
+	\includegraphics[height=0.7\textheight]{pinnend}
+\end{figure}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Pinned Memory}
+\begin{itemize}
+	\item Pinned memory can be directly allocated and used
+	\item Larger allocation overhead than pageable memory
+	\item Limited by physical available host memory (no swapping)
+\end{itemize}
+Allocation with CUDA Runtime:
+\begin{lstlisting}
+int* h_data;
+cudaMallocHost((void**)&h_data, N * sizeof(int));
+\end{lstlisting}
+Allocation with Saiga:
+\begin{lstlisting}
+#include "saiga/cuda/pinned_vector.h"
+// ...
+
+Saiga::thrust::pinned_vector<int> h_data(N);
+\end{lstlisting}
+\end{frame}
+
+
+
+\frame
+{
+\begin{center}
+\Large Streams
+\end{center}
+}
+
+
+
+\frame
+{
+	\frametitle{GPU Concurrency}
+	It is possible in CUDA to
 	\begin{itemize}
-		\item Uses 32 registers/thread
-		\item Occupancy: 100\%
-		\item 5\% \textbf{worse} performance
-		\item[$\rightarrow$] The kernel uses local memory now
+		\item execute multiple kernels at the same time
+		\item copy data while executing kernels
+		\item copy data in both directions in parallel
 	\end{itemize}
-\end{minipage}
-\begin{minipage}{0.47\linewidth}
+\onslide<2->
+	But
+	\begin{itemize}
+		\item Non of these things are done by default
+		\item[$\rightarrow$] The programmer has to control it explicitly via \textbf{Streams}
+	\end{itemize}
+}
 
-\end{minipage}
+
+
+\begin{frame}[fragile]
+\frametitle{CUDA Streams}
+	\begin{mdframed}[frametitle={CUDA Programming Guide}]
+Applications manage the concurrent operations described above through streams. A stream is a sequence of commands (possibly issued by different host threads) that execute in order. Different streams, on the other hand, may execute their commands out of order with respect to one another or concurrently; this behavior is not guaranteed and should therefore not be relied upon for correctness (e.g., inter-kernel communication is undefined). 
+\end{mdframed}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Creation and Destruction}
+
+CUDA Runtime API
+\begin{lstlisting}
+cudaStream_t stream;
+cudaStreamCreate(&stream);
+cudaMemcpyAsync(dst,src,size,cudaMemcpyHostToDevice,stream);
+cudaStreamDestroy(stream);
+\end{lstlisting}
+
+Saiga
+\begin{lstlisting}
+#include "saiga/cuda/stream.h"
+//...
+
+Saiga::CUDA::CudaStream stream;
+cudaMemcpyAsync(dst,src,size,cudaMemcpyHostToDevice,stream);
+
+// Destroyed in the destructor of 'stream'
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Asynchronous memcpy}
+\texttt{cudaMemcpy}
+\begin{itemize}
+	\item is synchronous
+	\item[$\rightarrow$] the CPU waits until all kernels are finished
+	\item[$\rightarrow$] the CPU waits until the data transfer is finished
+\end{itemize}
+\onslide<2->
+\texttt{cudaMemcpyAsync}
+\begin{itemize}
+	\item<2-> is executed in-order for the given stream
+	\item<3-> returns control immediately to the CPU
+	\item<4-> only works with \textit{pinned} memory
+	\item<5-> same syntax as \texttt{cudaMemcpy}
+	\item<6-> Currently no Thrust wrapper
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Explicit Synchronization}
+
+\begin{itemize}
+	\item Synchronize everything
+	\begin{itemize}
+		\item \texttt{cudaDeviceSynchronize}
+		\item Blocks host until all issued CUDA calls are complete
+	\end{itemize}
+	\item Synchronize w.r.t. a specific stream
+	\begin{itemize}
+		\item \texttt{cudaStreamSynchronize(streamid)}
+		\item Blocks host until all CUDA calls in streamid are complete
+	\end{itemize}
+	\item Synchronize using Events
+	\begin{itemize}
+		\item Create specific 'Events', within streams, to use for synchronization
+		\item Streams can wait on each other without blocking the host
+	\end{itemize}
+\end{itemize}
 \end{frame}
 
 
 \begin{frame}[fragile]
-\frametitle{Advanced Profiling}
+\frametitle{CUDA Events}
 
-	\begin{enumerate}
-		\item Switch to unguided analysis
-		\item Run Global Memory analysis
-		\item Click on individual transaction
-	\end{enumerate}
-	
+\begin{itemize}
+	\item Events are placed into command streams (record)
+	\item Streams can wait for events of other streams
+	\item In the next few slides the \href{https://github.com/darglein/saiga/blob/master/src/saiga/cuda/event.h}{CudaEvent c++ wrapper} from Saiga is used
+	\item Example to measure GPU time with CudaEvents:
+\end{itemize}
+\begin{lstlisting}
+CudaEvent start, stop;                           
+start.record();                                  
+// ...                                           
+stop.record();                                   
+stop.synchronize();                              
+float time = CudaEvent::elapsedTime(start,stop); 
+\end{lstlisting}
 \end{frame}
 
 
 
 
+\begin{frame}[fragile]
+\frametitle{Concurrency Example}
+Our Task:
+\begin{enumerate}
+	\item Copy array of elements to the GPU
+	\item Process each element
+	\item Copy array back to the CPU
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Optimization Idea}
+\begin{itemize}
+	\item Split the large array into multiple segments
+	\item Interleave upload, process, and download
+	\item Data is uploaded for a segment while the previous one is still processed
+	\item[$\rightarrow$] Maximize concurrent GPU utilization
+	\item[$\rightarrow$] Reduce the overall processing time
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Interleaved transfer/process}
+
+\begin{figure}
+	\includegraphics[width=1\linewidth]{asyncspeedup}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Interleaved transfer/process}
+16 Streams
+\begin{figure}
+	\includegraphics[width=.4\linewidth]{async16}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Interleaved transfer/process}
+8 Streams, 64 Slices
+\begin{figure}
+	\includegraphics[width=.95\linewidth]{async648}
+\end{figure}
+
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\frametitle{Concurrency Example}
+\begin{itemize}
+	\item Implementation with streams and segments
+\end{itemize}
+
+\begin{lstlisting}
+Saiga::thrust::pinned_vector<T> h_data(N);
+thrust::device_vector<T> d_data(N);
+size_t size = N * sizeof(T);
+
+const int slices = 4;
+int sliceN = N / slices;
+size_t slizeSize = sliceN * sizeof(T);
+
+// Create a separate stream for each slice for maximum parallelism
+std::vector<Saiga::CUDA::CudaStream> streams(slices);
+
+// ArrayViews simplify slice creation
+ArrayView<T> vd(d_data);
+ArrayView<T> vh(h_data);
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Concurrency Example}
+\begin{itemize}
+	\item Implementation with streams and segments
+\end{itemize}
+
+\begin{lstlisting}
+for(int i = 0; i < slices; ++i)
+{
+	// Pick current stream and slice
+	auto& stream = streams[i];
+	auto d_slice = vd.slice_n(i * sliceN,sliceN);
+	auto h_slice = vh.slice_n(i * sliceN,sliceN);
+	
+	// Compute launch arguments
+	const unsigned int BLOCK_SIZE = 128;
+	const unsigned int BLOCKS = Saiga::CUDA::getBlockCount(sliceN,BLOCK_SIZE);
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Concurrency Example}
+\begin{itemize}
+	\item Implementation with streams and segments
+\end{itemize}
+
+\begin{lstlisting}
+	// Upload
+	cudaMemcpyAsync(d_slice.data(),h_slice.data(),slizeSize,cudaMemcpyHostToDevice,stream);
+	
+	// Process
+	process<T><<<BLOCKS,BLOCK_SIZE,0,stream>>>(d_slice);
+	
+	// Download
+	cudaMemcpyAsync(h_slice.data(),d_slice.data(),slizeSize,cudaMemcpyDeviceToHost,stream);
+}
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Concurrency Example Results}
+\centering
+\begin{tabular}{l|S|S}	
+	\multicolumn{1}{c|}{\textbf{Method}} & \textbf{Time (ms)} & \textbf{Speed Up} \\
+	\hline
+	Initial 				& 13.55     & 1 \\
+	Pinned Memory 1 Stream	& 9.50      & 1.426 \\
+	Pinned Memory 2 Stream	& 6.87      & 1.97 \\
+	Pinned Memory 4 Stream	& 5.57     & 2.43 \\
+	Pinned Memory 8 Stream	& 4.94      & 2.74 \\
+	Pinned Memory 16 Stream	& 4.60      & 2.94 \\
+		Pinned Memory 8 Stream 64 Slices	& 4.41     & 3.07 \\
+\end{tabular}
+\\
+\vspace{0.5cm}
+\begin{itemize}
+	\item[$\rightarrow$] With multiple streams and pinned memory the performance can be increased by a factor of 3 compared to the initial implementation
+	\item[$\rightarrow$] \href{https://github.com/darglein/saiga/blob/master/samples/cuda/async/main.cu}{Full source code @ GitHub}
+\end{itemize}
+
+\end{frame}
 \frame{
 	\frametitle{Literature}
 	%

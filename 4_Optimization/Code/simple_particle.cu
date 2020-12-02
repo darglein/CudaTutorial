@@ -12,53 +12,6 @@
 #include <cuda_profiler_api.h>
 #include <thrust/device_vector.h>
 
-using vec3 = Eigen::Vector3f;
-
-struct Particle
-{
-    vec3 position;
-    float radius;
-    vec3 velocity;
-    float invMass;
-
-    Particle() = default;
-    __host__ __device__ Particle(const Particle& other) { *this = other; }
-    __host__ __device__ Particle& operator=(const Particle& other)
-    {
-        ((float4*)this)[0] = ((float4*)&other)[0];
-        ((float4*)this)[1] = ((float4*)&other)[1];
-        return *this;
-    }
-};
-
-struct EIGEN_ALIGN16 PositionRadius
-{
-    vec3 position;
-    float radius;
-
-    PositionRadius() = default;
-    __host__ __device__ PositionRadius(const PositionRadius& other) { *this = other; }
-    __host__ __device__ PositionRadius& operator=(const PositionRadius& other)
-    {
-        ((float4*)this)[0] = ((float4*)&other)[0];
-        return *this;
-    }
-};
-
-
-struct EIGEN_ALIGN16 VelocityMass
-{
-    vec3 velocity;
-    float invMass;
-
-    VelocityMass() = default;
-    __host__ __device__ VelocityMass(const VelocityMass& other) { *this = other; }
-    __host__ __device__ VelocityMass& operator=(const VelocityMass& other)
-    {
-        ((float4*)this)[0] = ((float4*)&other)[0];
-        return *this;
-    }
-};
 
 // ===== Helper functions ====
 __device__ inline int GlobalThreadId()
@@ -69,9 +22,19 @@ inline int iDivUp(int a, int b)
 {
     return (a + b - (1)) / b;
 }
+using vec3 = Eigen::Vector3f;
 
-// ===== Particle Integration Kernel ====
-__global__ static void updateParticles(Particle* particles, int N, float dt)
+
+
+struct EIGEN_ALIGN16 Particle
+{
+    vec3 position;
+    float radius;
+    vec3 velocity;
+    float invMass;
+};
+
+__global__ static void IntegrateParticlesSimple(Particle* particles, int N, float dt)
 {
     int tid = GlobalThreadId();
     if (tid >= N) return;
@@ -81,7 +44,20 @@ __global__ static void updateParticles(Particle* particles, int N, float dt)
     particles[tid] = p;
 }
 
-__global__ static void updateParticles2(PositionRadius* prs, VelocityMass* vms, int N, float dt)
+struct EIGEN_ALIGN16 PositionRadius
+{
+    vec3 position;
+    float radius;
+};
+
+
+struct EIGEN_ALIGN16 VelocityMass
+{
+    vec3 velocity;
+    float invMass;
+};
+
+__global__ static void IntegrateParticlesInverse(PositionRadius* prs, VelocityMass* vms, int N, float dt)
 {
     int tid = GlobalThreadId();
     if (tid >= N) return;
@@ -90,78 +66,69 @@ __global__ static void updateParticles2(PositionRadius* prs, VelocityMass* vms, 
 
     pr = prs[tid];
     vm = vms[tid];
-    //        reinterpret_cast<int4*>(&pr)[0] = reinterpret_cast<int4*>(prs)[tid];
-    //        reinterpret_cast<int4*>(&vm)[0] = reinterpret_cast<int4*>(vms)[tid];
 
-    //    Particle& p = particles[tid];
     pr.position += vm.velocity * dt;
     vm.velocity += vec3(0, -9.81, 0) * dt;
 
-
-    //    reinterpret_cast<int4*>(prs)[tid] = reinterpret_cast<int4*>(&pr)[0];
-    //    reinterpret_cast<int4*>(vms)[tid] = reinterpret_cast<int4*>(&vm)[0];
     vms[tid] = vm;
     prs[tid] = pr;
+}
+
+__global__ static void IntegrateParticlesInverse16(PositionRadius* prs, VelocityMass* vms, int N, float dt)
+{
+    int tid = GlobalThreadId();
+    if (tid >= N) return;
+    PositionRadius pr;
+    VelocityMass vm;
+
+    reinterpret_cast<int4*>(&pr)[0] = reinterpret_cast<int4*>(prs)[tid];
+    reinterpret_cast<int4*>(&vm)[0] = reinterpret_cast<int4*>(vms)[tid];
+
+    pr.position += vm.velocity * dt;
+    vm.velocity += vec3(0, -9.81, 0) * dt;
+
+    reinterpret_cast<int4*>(prs)[tid] = reinterpret_cast<int4*>(&pr)[0];
+    reinterpret_cast<int4*>(vms)[tid] = reinterpret_cast<int4*>(&vm)[0];
 }
 
 int main(int argc, char* argv[])
 {
     const int N     = 2500000;
-    const int steps = 3;
+    const int steps = 11;
     float dt        = 0.1;
 
-    std::cout << "Simple Particle integration N = " << N << std::endl;
+    std::cout << "Testing Particle integration N = " << N << std::endl;
+    std::cout << std::endl;
 
     // Allocate CPU and GPU memory
     std::vector<Particle> particles(N);
-    thrust::device_vector<Particle> d_particles(N);
+    thrust::device_vector<Particle> d_particles(particles);
 
     thrust::device_vector<PositionRadius> d_pr(N);
     thrust::device_vector<VelocityMass> d_vm(N);
 
-    // Initialize on the CPU
-    for (Particle& p : particles)
-    {
-        //        p.position = vec3::Zero();
-        //        p.velocity = vec3::Random();
-    }
-
-    // Upload memory
-    //    thrust::copy(particles.begin(), particles.end(), d_particles.begin());
 
     cudaProfilerStart();
-    // Integrate
-    for (int i = 0; i < steps; ++i)
-    {
-        float time_gpu;
-        {
-            CudaScopedTimer timer(time_gpu);
-            const int BLOCK_SIZE = 128;
-            updateParticles<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(d_particles.data().get(), N, dt);
-        }
-        std::cout << "Integrate  " << time_gpu << " ms." << std::endl;
-    }
 
-    std::cout << std::endl;
+    float time_simple = measureObject(steps, [&]() {
+        const int BLOCK_SIZE = 128;
+        IntegrateParticlesSimple<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(d_particles.data().get(), N, dt);
+    });
+    std::cout << "IntegrateParticlesSimple    " << time_simple << " ms." << std::endl;
 
+    float time_inverse = measureObject(steps, [&]() {
+        const int BLOCK_SIZE = 128;
+        IntegrateParticlesInverse<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(d_pr.data().get(), d_vm.data().get(), N, dt);
+    });
+    std::cout << "IntegrateParticlesInverse   " << time_inverse << " ms." << std::endl;
 
-    for (int i = 0; i < steps; ++i)
-    {
-        float time_gpu;
-        {
-            CudaScopedTimer timer(time_gpu);
-            const int BLOCK_SIZE = 128;
-            updateParticles2<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(d_pr.data().get(), d_vm.data().get(), N, dt);
-        }
-        std::cout << "Integrate2 " << time_gpu << " ms." << std::endl;
-    }
+    float time_inverse16 = measureObject(steps, [&]() {
+        const int BLOCK_SIZE = 128;
+        IntegrateParticlesInverse16<<<iDivUp(N, BLOCK_SIZE), BLOCK_SIZE>>>(d_pr.data().get(), d_vm.data().get(), N, dt);
+    });
+    std::cout << "IntegrateParticlesInverse16 " << time_inverse16 << " ms." << std::endl;
+
     cudaProfilerStop();
-    // Download
-    thrust::copy(d_particles.begin(), d_particles.end(), particles.begin());
 
-    //    for (Particle& p : particles)
-    //    {
-    //        std::cout << p.position.transpose() << " " << p.velocity.transpose() << std::endl;
-    //    }
     std::cout << "done." << std::endl;
 }

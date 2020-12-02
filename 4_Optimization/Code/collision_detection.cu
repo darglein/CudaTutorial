@@ -121,8 +121,8 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
 int main(int argc, char* argv[])
 {
-    int n = 10000;
-    int m = 10000;
+    int n = 1000;
+    int m = 1000;
 
     const int K = 4;
 
@@ -195,7 +195,6 @@ int main(int argc, char* argv[])
 
     std::cout << "Found " << num_collisions << " collisions on the GPU in " << time_gpu2 << " ms" << std::endl;
 
-    return 0;
     std::atomic_int num_collisions_cpu;
     num_collisions_cpu = 0;
     float time_cpu;
