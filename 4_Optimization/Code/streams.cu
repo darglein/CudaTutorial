@@ -66,39 +66,40 @@ static void uploadProcessDownloadAsync(int N, int slices, int streamCount)
         cudaStreamCreate(&s);
     }
 
-    float time;
+    for (int l = 0; l < 1; ++l)
     {
-        CudaScopedTimer timer(time);
-        for (int i = 0; i < slices; ++i)
+        float time;
         {
-            // Rotate through all streams
-            auto& stream = streams[i % streamCount];
-            T* d_slice   = d_data.data().get() + i * sliceN;
-            T* h_slice   = h_data.data() + i * sliceN;
+            CudaScopedTimer timer(time);
+            for (int i = 0; i < slices; ++i)
+            {
+                // Rotate through all streams
+                auto& stream = streams[i % streamCount];
+                T* d_slice   = d_data.data().get() + i * sliceN;
+                T* h_slice   = h_data.data() + i * sliceN;
 
-            cudaMemcpyAsync(d_slice, h_slice, sliceN * sizeof(T), cudaMemcpyHostToDevice, stream);
-            process<T><<<iDivUp(sliceN, 128), 128, 0, stream>>>(d_slice, sliceN);
-            cudaMemcpyAsync(h_slice, d_slice, sliceN * sizeof(T), cudaMemcpyDeviceToHost, stream);
+                cudaMemcpyAsync(d_slice, h_slice, sliceN * sizeof(T), cudaMemcpyHostToDevice, stream);
+                process<T><<<iDivUp(sliceN, 128), 128, 0, stream>>>(d_slice, sliceN);
+                cudaMemcpyAsync(h_slice, d_slice, sliceN * sizeof(T), cudaMemcpyDeviceToHost, stream);
+            }
         }
+        std::cout << "uploadProcessDownloadAsync Streams = " << std::setw(3) << streamCount
+                  << " Slices = " << std::setw(3) << slices << " Time: " << time << "ms." << std::endl;
     }
 
     for (auto& s : streams)
     {
         cudaStreamDestroy(s);
     }
-
-    std::cout << "uploadProcessDownloadAsync Streams = " << std::setw(3) << streamCount << " Slices = " << std::setw(3)
-              << slices << " Time: " << time << "ms." << std::endl;
 }
 
 int main(int argc, char* argv[])
 {
-    uploadProcessDownloadAsync<8>(1024 * 1024, 1, 1);
-    uploadProcessDownloadAsync<8>(1024 * 1024, 2, 2);
-    uploadProcessDownloadAsync<8>(1024 * 1024, 4, 4);
-    uploadProcessDownloadAsync<8>(1024 * 1024, 8, 8);
     cudaProfilerStart();
-    uploadProcessDownloadAsync<8>(1024 * 1024, 64, 8);
+    uploadProcessDownloadAsync<2>(4 * 1024 * 1024, 1, 1);
+    uploadProcessDownloadAsync<2>(4 * 1024 * 1024, 2, 2);
+    uploadProcessDownloadAsync<2>(4 * 1024 * 1024, 4, 4);
+    uploadProcessDownloadAsync<2>(4 * 1024 * 1024, 16, 4);
     cudaProfilerStop();
     std::cout << "Done." << std::endl;
 }
