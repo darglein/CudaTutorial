@@ -402,28 +402,31 @@ if(steps++ == 300){
 
 
 
-\begin{frame}[fragile]
-\frametitle{Profiling}
+\frame
+{
+	\frametitle{Nsight Compute}
+		\begin{figure}
+	\centering
+	\includegraphics[height=0.95\textheight]{nsc1}
+\end{figure}
+}
 
-	\begin{minipage}{0.5\linewidth}
-		\begin{enumerate}
-			\item 		Launch the NVidia Visual Profiler (NVVP)
-\begin{lstlisting}[language=bash]
-nvvp ./agphys
-\end{lstlisting}
-			\item Uncheck \textit{Start execution with profiling enabled}
-			\item[$\rightarrow$] We only profile one step
-			\item Uncheck \textit{Unified memory profiling}
-			\item[$\rightarrow$] Requires \textit{root}
-			\item Click finish
-		\end{enumerate}
-
-
-\end{minipage}
-\begin{minipage}{0.47\linewidth}
-
-\end{minipage}
-\end{frame}
+\frame
+{
+	\frametitle{Nsight Compute}
+		\begin{figure}
+	\centering
+	\includegraphics[height=0.95\textheight]{nsc2}
+\end{figure}
+}
+\frame
+{
+	\frametitle{Nsight Compute}
+		\begin{figure}
+	\centering
+	\includegraphics[height=0.95\textheight]{nsc3}
+\end{figure}
+}
 
 
 \frame
@@ -901,25 +904,6 @@ Similar to CPU threads, active warps can be either \textbf{running}, \textbf{rea
 \end{itemize}
 \end{frame}
 
-
-
-\begin{frame}[fragile]
-\frametitle{Occupancy Example}
-
-\begin{minipage}{0.5\linewidth}
-	Particle-Particle Collision Kernel
-	\begin{itemize}
-		\item Uses 40 registers/thread
-		\item Occupancy: 75\%
-		\item Latency issues because of acceleration structure
-		\item[$\rightarrow$] Higher occupancy could increase performance
-		\item[$\rightarrow$] Try to reduce registers to 32/thread
-	\end{itemize}
-\end{minipage}
-\begin{minipage}{0.47\linewidth}
-
-\end{minipage}
-\end{frame}
 
 
 \begin{frame}[fragile]

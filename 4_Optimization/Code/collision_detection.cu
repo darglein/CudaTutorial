@@ -84,7 +84,6 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
         shared_particles2[offset] = (particles2)[block_j + offset];
     }
 
-
     __syncthreads();
 
     for (int k = 0; k < K; ++k)
@@ -99,11 +98,8 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
             if (i >= n || j >= m) continue;
 
-
-
             const Particle& p1 = shared_particles1[local_i];
             const Particle& p2 = shared_particles2[local_j];
-
 
             if (Collide(p1, p2))
             {
@@ -149,7 +145,6 @@ __global__ void RedBlueParticleCollisionSharedOptimized(Particle* particles1, Pa
     {
         int local_i = k * blockDim.x + threadIdx.x;
         int i       = block_i + local_i;
-        //        if (i >= n) continue;
         Particle p1 = ((Particle*)shared_particles1)[local_i];
 
         for (int l = 0; l < K * (16 / BLOCK_SIZE_Y); ++l)
@@ -157,15 +152,10 @@ __global__ void RedBlueParticleCollisionSharedOptimized(Particle* particles1, Pa
             int local_j = l * blockDim.y + threadIdx.y;
             int j       = block_j + local_j;
             Particle p2 = ((Particle*)shared_particles2)[local_j];
-            //            if (j >= m) continue;
-
-            //            p2.position.x() += ((j >= m) | (i >= n)) * 1000.f;
             if (j >= m | i >= n) p2.position.x() = std::numeric_limits<float>::quiet_NaN();
 
-            //            bool con = j >= m | i >= n | Collide(p1, p2);
 
             if (Collide(p1, p2))
-            //            if (con)
             {
                 int index = atomicAdd(counter, 1);
                 if (index < MAX_COLLISIONS)
@@ -180,7 +170,7 @@ __global__ void RedBlueParticleCollisionSharedOptimized(Particle* particles1, Pa
 int main(int argc, char* argv[])
 {
     int n = 3940;
-    int m = 1824;
+    int m = 5824;
 
     const int K     = 4;
     const int steps = 11;

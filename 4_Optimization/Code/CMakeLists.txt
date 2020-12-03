@@ -24,3 +24,8 @@ add_executable(simple_particle simple_particle.cu)
 target_link_libraries(simple_particle Eigen3::Eigen CUDA::cudart OpenMP::OpenMP_CXX)
 set_property(TARGET simple_particle PROPERTY CUDA_ARCHITECTURES 52-virtual 75)
 target_compile_options(simple_particle PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${MY_CUDA_FLAGS}>)
+
+add_executable(streams streams.cu)
+target_link_libraries(streams Eigen3::Eigen CUDA::cudart OpenMP::OpenMP_CXX)
+set_property(TARGET streams PROPERTY CUDA_ARCHITECTURES 52-virtual 75)
+target_compile_options(streams PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${MY_CUDA_FLAGS}>)
