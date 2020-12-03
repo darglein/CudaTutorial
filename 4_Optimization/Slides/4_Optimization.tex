@@ -1164,45 +1164,20 @@ Our Task:
 \begin{frame}[fragile]
 \frametitle{Concurrency Example}
 \begin{itemize}
-	\item Implementation with streams and segments
+	\item Implementation with streams and slices
 \end{itemize}
 
 \begin{lstlisting}
-Saiga::thrust::pinned_vector<T> h_data(N);
+pinned_vector<T> h_data(N);
 thrust::device_vector<T> d_data(N);
-size_t size = N * sizeof(T);
 
-const int slices = 4;
 int sliceN = N / slices;
-size_t slizeSize = sliceN * sizeof(T);
+std::vector<cudaStream_t> streams(streamCount);
 
-// Create a separate stream for each slice for maximum parallelism
-std::vector<Saiga::CUDA::CudaStream> streams(slices);
-
-// ArrayViews simplify slice creation
-ArrayView<T> vd(d_data);
-ArrayView<T> vh(h_data);
-\end{lstlisting}
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Concurrency Example}
-\begin{itemize}
-	\item Implementation with streams and segments
-\end{itemize}
-
-\begin{lstlisting}
-for(int i = 0; i < slices; ++i)
+for (auto& s : streams)
 {
-	// Pick current stream and slice
-	auto& stream = streams[i];
-	auto d_slice = vd.slice_n(i * sliceN,sliceN);
-	auto h_slice = vh.slice_n(i * sliceN,sliceN);
-	
-	// Compute launch arguments
-	const unsigned int BLOCK_SIZE = 128;
-	const unsigned int BLOCKS = Saiga::CUDA::getBlockCount(sliceN,BLOCK_SIZE);
+    cudaStreamCreate(&s);
+}
 \end{lstlisting}
 \end{frame}
 
@@ -1210,18 +1185,23 @@ for(int i = 0; i < slices; ++i)
 \begin{frame}[fragile]
 \frametitle{Concurrency Example}
 \begin{itemize}
-	\item Implementation with streams and segments
+	\item Implementation with streams and slices
 \end{itemize}
 
 \begin{lstlisting}
-	// Upload
-	cudaMemcpyAsync(d_slice.data(),h_slice.data(),slizeSize,cudaMemcpyHostToDevice,stream);
-	
-	// Process
-	process<T><<<BLOCKS,BLOCK_SIZE,0,stream>>>(d_slice);
-	
-	// Download
-	cudaMemcpyAsync(h_slice.data(),d_slice.data(),slizeSize,cudaMemcpyDeviceToHost,stream);
+for (int i = 0; i < slices; ++i)
+{
+    // Rotate through all streams
+    auto& stream = streams[i % streamCount];
+    T* d_slice   = d_data.data().get() + i * sliceN;
+    T* h_slice   = h_data.data() + i * sliceN;
+
+    cudaMemcpyAsync(d_slice, h_slice, sliceN * sizeof(T), 
+    		cudaMemcpyHostToDevice, stream);
+    process<T><<<iDivUp(sliceN, 128), 128, 0, stream>>>(
+    		d_slice, sliceN);
+    cudaMemcpyAsync(h_slice, d_slice, sliceN * sizeof(T), 
+    		cudaMemcpyDeviceToHost, stream);
 }
 \end{lstlisting}
 \end{frame}
