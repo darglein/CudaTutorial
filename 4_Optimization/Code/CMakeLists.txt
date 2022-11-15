@@ -5,7 +5,7 @@ project ("Cuda Intro 4" VERSION 1.0.0 LANGUAGES CXX CUDA)
 
 find_package(OpenMP REQUIRED)
 find_package(CUDAToolkit REQUIRED)
-find_package(Eigen3 REQUIRED)
+add_subdirectory(tiny-eigen)
 
 list(APPEND MY_CUDA_FLAGS "--expt-relaxed-constexpr")
 list(APPEND MY_CUDA_FLAGS "-Xcompiler=-fopenmp")

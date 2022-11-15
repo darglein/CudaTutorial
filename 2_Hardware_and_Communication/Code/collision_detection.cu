@@ -4,12 +4,14 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
 #include "Timer.h"
 
 #include <iostream>
 
+#include "tiny-eigen/matrix.h"
 #include <thrust/device_vector.h>
+
+using vec3 = Eigen::Matrix<float, 3, 1>;
 
 constexpr int MAX_COLLISIONS = 100000;
 
@@ -25,7 +27,7 @@ int iDivUp(int a, int b)
 
 struct Particle
 {
-    Eigen::Vector3f position;
+    vec3 position;
     float radius;
 };
 
@@ -128,16 +130,21 @@ int main(int argc, char* argv[])
     std::vector<Particle> particles1(n);
     std::vector<Particle> particles2(m);
 
+
+
     srand(1056735);
+
+    auto rand_float = []() { return ((rand() % 10000) / 10000.f) * 2 - 1; };
     for (Particle& p : particles1)
     {
-        p.position.setRandom();
-        p.radius = 0.07;
+        p.position.setZero();
+        p.position = vec3(rand_float(), rand_float(), rand_float());
+        p.radius   = 0.07;
     }
     for (Particle& p : particles2)
     {
-        p.position.setRandom();
-        p.radius = 0.07;
+        p.position = vec3(rand_float(), rand_float(), rand_float());
+        p.radius   = 0.07;
     }
 
     thrust::device_vector<Particle> d_particles1(particles1);

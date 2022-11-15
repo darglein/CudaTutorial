@@ -4,7 +4,7 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
+#include "tiny-eigen/matrix.h"
 #include "reduce.h"
 
 #include <algorithm>
@@ -12,6 +12,8 @@
 #include <iostream>
 
 #include <thrust/device_vector.h>
+
+using vec3 = Eigen::Matrix<float, 3, 1>;
 
 int iDivUp(int a, int b)
 {
@@ -31,7 +33,7 @@ struct OurReduceOp
             return b;
         }
     }
-    Eigen::Vector3f* values;
+    vec3* values;
 };
 
 
@@ -59,15 +61,16 @@ int main(int argc, char* argv[])
 {
     int N = 1232563;
     std::vector<int> keys(N);
-    std::vector<Eigen::Vector3f> values(N);
+    std::vector<vec3> values(N);
 
+    auto rand_float = []() { return ((rand() % 10000) / 10000.f) * 2 - 1; };
     for (int i = 0; i < N; ++i)
     {
         keys[i] = i;
-        values[i].setRandom();
+        values[i] = vec3(rand_float(), rand_float(), rand_float());
     }
     thrust::device_vector<int> d_keys               = keys;
-    thrust::device_vector<Eigen::Vector3f> d_values = values;
+    thrust::device_vector<vec3> d_values = values;
     thrust::device_vector<int> d_output(1);
     d_output[0] = 0;
 

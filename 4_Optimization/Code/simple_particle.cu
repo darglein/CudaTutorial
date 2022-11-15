@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  * See LICENSE file for more information.
  */
-#include "Eigen/Core"
+#include "tiny-eigen/matrix.h"
 #include "Timer.h"
 
 #include <iostream>
@@ -12,6 +12,7 @@
 #include <cuda_profiler_api.h>
 #include <thrust/device_vector.h>
 
+using vec3 = Eigen::Matrix<float, 3, 1>;
 
 // ===== Helper functions ====
 __device__ inline int GlobalThreadId()
@@ -22,11 +23,10 @@ inline int iDivUp(int a, int b)
 {
     return (a + b - (1)) / b;
 }
-using vec3 = Eigen::Vector3f;
 
 
 
-struct EIGEN_ALIGN16 Particle
+struct __align__(16) Particle
 {
     vec3 position;
     float radius;
@@ -44,14 +44,14 @@ __global__ static void IntegrateParticlesSimple(Particle* particles, int N, floa
     particles[tid] = p;
 }
 
-struct EIGEN_ALIGN16 PositionRadius
+struct __align__(16) PositionRadius
 {
     vec3 position;
     float radius;
 };
 
 
-struct EIGEN_ALIGN16 VelocityMass
+struct __align__(16) VelocityMass
 {
     vec3 velocity;
     float invMass;

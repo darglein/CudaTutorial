@@ -4,7 +4,6 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
 #include "reduce.h"
 
 #include <iomanip>

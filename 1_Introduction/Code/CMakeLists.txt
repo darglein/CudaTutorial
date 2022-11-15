@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 project ("Cuda Intro 1" VERSION 1.0.0 LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit 10.2 REQUIRED)
-find_package(Eigen3 REQUIRED)
+add_subdirectory(tiny-eigen)
 
 # CMake automatically compiles .cu file with NVCC
 add_executable(hello_world hello_world.cu)
