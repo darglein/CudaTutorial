@@ -4,14 +4,14 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
+#include "tiny-eigen/matrix.h"
 
 #include <iostream>
 #include <vector>
 
 #include <thrust/device_vector.h>
 
-using vec3 = Eigen::Vector3f;
+using vec3 = Eigen::Matrix<float, 3, 1>;
 
 struct Particle
 {
@@ -51,11 +51,13 @@ int main(int argc, char* argv[])
     std::vector<Particle> particles(N);
     thrust::device_vector<Particle> d_particles(N);
 
+    auto rand_float = []() { return ((rand() % 10000) / 10000.f) * 2 - 1; };
+
     // Initialize on the CPU
     for (Particle& p : particles)
     {
         p.position = vec3::Zero();
-        p.velocity = vec3::Random();
+        p.velocity = vec3(rand_float(), rand_float(), rand_float());
     }
 
     // Upload memory

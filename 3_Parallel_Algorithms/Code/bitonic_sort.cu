@@ -4,8 +4,6 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
-
 #include <iostream>
 
 #include "bitonic_sort.h"

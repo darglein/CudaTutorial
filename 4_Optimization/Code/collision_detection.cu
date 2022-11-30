@@ -4,14 +4,15 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
 #include "Timer.h"
 
 #include <iostream>
 
+#include "tiny-eigen/matrix.h"
 #include <cuda_profiler_api.h>
 #include <thrust/device_vector.h>
 
+using vec3               = Eigen::Matrix<float, 3, 1>;
 const int MAX_COLLISIONS = 100000;
 
 __device__ int GlobalThreadId()
@@ -23,7 +24,6 @@ int iDivUp(int a, int b)
     return (a + b - (1)) / b;
 }
 
-using vec3 = Eigen::Vector3f;
 struct Particle
 {
     vec3 position;
@@ -71,7 +71,7 @@ __global__ void RedBlueParticleCollisionShared(Particle* particles1, Particle* p
 
     int block_i = blockIdx.x * 16 * K;
     int block_j = blockIdx.y * 16 * K;
-    int tid     = threadIdx.x + threadIdx.y * blockDim.x;
+    // int tid     = threadIdx.x + threadIdx.y * blockDim.x;
 
     if (block_i >= n || block_j >= m) return;
 
@@ -123,7 +123,7 @@ __global__ void RedBlueParticleCollisionSharedOptimized(Particle* particles1, Pa
 
     int block_i = blockIdx.x * 16 * K;
     int block_j = blockIdx.y * 16 * K;
-    int tid     = threadIdx.x + threadIdx.y * blockDim.x;
+    //    int tid     = threadIdx.x + threadIdx.y * blockDim.x;
 
     if (block_i >= n || block_j >= m) return;
 
@@ -182,14 +182,15 @@ int main(int argc, char* argv[])
     std::vector<Particle> particles2(m);
 
     srand(1056735);
+    auto rand_float = []() { return ((rand() % 10000) / 10000.f) * 2 - 1; };
     for (Particle& p : particles1)
     {
-        p.position = vec3::Random() * 25;
+        p.position = vec3(rand_float(), rand_float(), rand_float()) * 25;
         p.radius   = 1;
     }
     for (Particle& p : particles2)
     {
-        p.position = vec3::Random() * 25;
+        p.position = vec3(rand_float(), rand_float(), rand_float()) * 25;
         p.radius   = 1;
     }
 
@@ -211,7 +212,8 @@ int main(int argc, char* argv[])
 
     float time_simple = measureObject2(
         steps, [&]() { d_collision_count[0] = 0; },
-        [&]() {
+        [&]()
+        {
             int blocks_x = iDivUp(n, block_size_x);
             int blocks_y = iDivUp(m, block_size_y);
             RedBlueParticleCollisionSimple<<<dim3(blocks_x, blocks_y, 1), dim3(block_size_x, block_size_y, 1)>>>(
@@ -224,7 +226,8 @@ int main(int argc, char* argv[])
 #if 1
     float time_shared = measureObject2(
         steps, [&]() { d_collision_count[0] = 0; },
-        [&]() {
+        [&]()
+        {
             int blocks_x = iDivUp(n, block_size_x * K);
             int blocks_y = iDivUp(m, block_size_y * K);
             RedBlueParticleCollisionShared<block_size_x, block_size_y, K>
@@ -239,7 +242,8 @@ int main(int argc, char* argv[])
 #if 1
     float time_shared_optimized = measureObject2(
         steps, [&]() { d_collision_count[0] = 0; },
-        [&]() {
+        [&]()
+        {
             int blocks_x = iDivUp(n, block_size_x * K);
             int blocks_y = iDivUp(m, block_size_y * K);
             RedBlueParticleCollisionSharedOptimized<block_size_x, block_size_y, K>

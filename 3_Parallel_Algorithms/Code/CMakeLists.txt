@@ -3,7 +3,8 @@ project ("Cuda Intro 3" VERSION 1.0.0 LANGUAGES CXX CUDA)
 
 
 find_package(CUDAToolkit REQUIRED)
-find_package(Eigen3 REQUIRED)
+add_subdirectory(tiny-eigen)
+
 
 list(APPEND CUDA_FLAGS "--expt-relaxed-constexpr")
 

@@ -4,7 +4,7 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
+#include "tiny-eigen/matrix.h"
 #include "Timer.h"
 
 #include <iomanip>
@@ -21,7 +21,7 @@ inline int iDivUp(int a, int b)
 }
 template <typename T>
 using pinned_vector = ::thrust::host_vector<T, ::thrust::cuda::experimental::pinned_allocator<T>>;
-using vec4          = Eigen::Vector4f;
+using vec4 = Eigen::Matrix<float, 4, 1>;
 
 template <int K>
 class Element

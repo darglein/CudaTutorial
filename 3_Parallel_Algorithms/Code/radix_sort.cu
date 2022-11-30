@@ -4,9 +4,9 @@
  * See LICENSE file for more information.
  */
 
-#include "Eigen/Core"
 
 #include <iostream>
+#include <algorithm>
 
 #include "bitonic_sort.h"
 #include <thrust/device_vector.h>
