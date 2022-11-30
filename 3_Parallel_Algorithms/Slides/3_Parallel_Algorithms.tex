@@ -790,7 +790,7 @@ Implementation:
 	\item Scatter elements to scanned offsets
 \begin{lstlisting}
 thrust::exclusive_scan(pred.begin(),pred.end(),map.begin());
-thrust::scatter(data.begin(),data.end(),map.begin(),out.begin());
+thrust::scatter_if(data.begin(), data.end(), map.begin(), pred.begin(), out.begin());
 \end{lstlisting}
 \item [$\rightarrow$] Can be implemented in a single pass
 \end{enumerate}

@@ -59,33 +59,35 @@ static void uploadProcessDownloadAsync(int N, int slices, int streamCount)
     thrust::device_vector<T> d_data(N);
 
     int sliceN = N / slices;
-    std::vector<cudaStream_t> streams(streamCount);
 
+
+    std::vector<cudaStream_t> streams(streamCount);
     for (auto& s : streams)
     {
         cudaStreamCreate(&s);
     }
 
-    for (int l = 0; l < 1; ++l)
-    {
-        float time;
-        {
-            CudaScopedTimer timer(time);
-            for (int i = 0; i < slices; ++i)
-            {
-                // Rotate through all streams
-                auto& stream = streams[i % streamCount];
-                T* d_slice   = d_data.data().get() + i * sliceN;
-                T* h_slice   = h_data.data() + i * sliceN;
 
-                cudaMemcpyAsync(d_slice, h_slice, sliceN * sizeof(T), cudaMemcpyHostToDevice, stream);
-                process<T><<<iDivUp(sliceN, 128), 128, 0, stream>>>(d_slice, sliceN);
-                cudaMemcpyAsync(h_slice, d_slice, sliceN * sizeof(T), cudaMemcpyDeviceToHost, stream);
-            }
+
+    float time;
+    {
+        CudaScopedTimer timer(time);
+
+
+        for (int i = 0; i < slices; ++i)
+        {
+            T* d_ptr = d_data.data().get() + i * sliceN;
+            T* h_ptr = h_data.data() + i * sliceN;
+
+            auto& stream = streams[i % streamCount];
+
+            cudaMemcpyAsync(d_ptr, h_ptr, sliceN * sizeof(T), cudaMemcpyHostToDevice, stream);
+            process<T><<<iDivUp(sliceN, 128), 128, 0, stream>>>(d_ptr, sliceN);
+            cudaMemcpyAsync(h_ptr, d_ptr, sliceN * sizeof(T), cudaMemcpyDeviceToHost, stream);
         }
-        std::cout << "uploadProcessDownloadAsync Streams = " << std::setw(3) << streamCount
-                  << " Slices = " << std::setw(3) << slices << " Time: " << time << "ms." << std::endl;
     }
+    std::cout << "uploadProcessDownloadAsync Streams = " << std::setw(3) << streamCount << " Slices = " << std::setw(3)
+              << slices << " Time: " << time << "ms." << std::endl;
 
     for (auto& s : streams)
     {
